@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 frontend/fleetgraph-ui/node_modules/
 frontend/fleetgraph-ui/dist/
+<<<<<<< HEAD
+=======
+
+frontend/fleetgraph-ui/node_modules/
+frontend/fleetgraph-ui/dist/
+>>>>>>> 4d7ff77 (FG11-MB1: remove tracked node_modules and dist artifacts)
