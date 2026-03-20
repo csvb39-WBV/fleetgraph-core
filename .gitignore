@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .venv/
+frontend/fleetgraph-ui/node_modules/
+frontend/fleetgraph-ui/dist/
