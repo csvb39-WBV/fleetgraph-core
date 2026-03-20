@@ -1,0 +1,62 @@
+export const DEMO_HEALTH = {
+  status: 'ok',
+  source: 'demo_fixture',
+}
+
+export const DEMO_SUMMARY = {
+  output_type: 'relationship_signal_output',
+  output_schema_version: '1.0',
+  record_count: 3,
+  source: 'demo_fixture',
+}
+
+export const DEMO_RECORDS = [
+  {
+    signal_id: 'SIG-001',
+    organization_name: 'Alpha Fleet Services',
+    domain: 'alphafleet.com',
+    source_domain: 'alphafleet.com',
+    target_domain: 'shared-services.net',
+    relationship_type: 'shared_domain',
+    signal_type: 'shared_domain_relationship_detected',
+    link_count: 4,
+    organization_count: 2,
+    domains: ['alphafleet.com', 'shared-services.net'],
+    organizations: ['Alpha Fleet Services', 'Shared Services LLC'],
+    links: ['alpha-shared-link-1', 'alpha-shared-link-2'],
+    signals: ['shared_domain'],
+    evidence: 'Shared DNS infrastructure',
+  },
+  {
+    signal_id: 'SIG-002',
+    organization_name: 'North Harbor Logistics',
+    domain: 'northharbor.io',
+    source_domain: 'northharbor.io',
+    target_domain: 'ops-hub.co',
+    relationship_type: 'shared_domain',
+    signal_type: 'shared_domain_relationship_detected',
+    link_count: 3,
+    organization_count: 2,
+    domains: ['northharbor.io', 'ops-hub.co'],
+    organizations: ['North Harbor Logistics', 'Ops Hub Cooperative'],
+    links: ['north-ops-link-1'],
+    signals: ['shared_domain'],
+    evidence: 'Shared MX and SPF records',
+  },
+  {
+    signal_id: 'SIG-003',
+    organization_name: 'Summit Route Partners',
+    domain: 'summitroute.org',
+    source_domain: 'summitroute.org',
+    target_domain: 'carrier-cloud.net',
+    relationship_type: 'shared_domain',
+    signal_type: 'shared_domain_relationship_detected',
+    link_count: 5,
+    organization_count: 3,
+    domains: ['summitroute.org', 'carrier-cloud.net', 'routing-lab.dev'],
+    organizations: ['Summit Route Partners', 'Carrier Cloud Network', 'Routing Lab'],
+    links: ['summit-carrier-link-1', 'summit-carrier-link-2', 'summit-carrier-link-3'],
+    signals: ['shared_domain'],
+    evidence: 'Shared certificate subject alternative names',
+  },
+]
