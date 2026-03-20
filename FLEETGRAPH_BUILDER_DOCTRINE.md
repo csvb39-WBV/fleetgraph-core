@@ -402,4 +402,38 @@ If forced to choose:
 
 ---
 
+# 19. BUILDER ENVIRONMENT BOOTSTRAP REQUIREMENT
+
+## PURPOSE
+Builder must be capable of executing validation independently within its execution environment.
+
+Builder is not permitted to rely on external or assumed system configuration.
+
+---
+
+## 20. REQUIRED BOOTSTRAP SEQUENCE
+
+If Python-based validation is required, Builder MUST:
+
+1. Create or activate a project-local virtual environment
+
+2. Install required dependencies explicitly
+
+3. Execute required validation commands
+
+4. Report all commands executed
+
+---
+
+## 21. STANDARD BOOTSTRAP COMMANDS (WINDOWS)
+
+Builder must use explicit commands:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install pytest
+
+---
+
 END OF DOCTRINE
