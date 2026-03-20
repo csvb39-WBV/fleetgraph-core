@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function Summary({ summary, records }) {
+export default function Summary({ summary, records, demoModeEnabled, demoStage }) {
   function toReadableLabel(fieldName) {
     return fieldName
       .split('_')
@@ -67,6 +67,16 @@ export default function Summary({ summary, records }) {
     <section style={{ display: 'grid', gap: '1rem' }}>
       <h2>Summary</h2>
       <p>Read-only summary view of relationship signal data.</p>
+
+      {demoModeEnabled ? (
+        <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem' }}>
+          <h3>Demo Guidance</h3>
+          <p>This page provides an executive summary of the current live relationship signal dataset.</p>
+          <p>The overview metrics represent the current loaded records without changing backend truth.</p>
+          <p>The detailed payload below reflects exactly what the backend summary is reporting.</p>
+          <p>Current demo stage: {demoStage}.</p>
+        </section>
+      ) : null}
 
       <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem' }}>
         <h3>Overview</h3>

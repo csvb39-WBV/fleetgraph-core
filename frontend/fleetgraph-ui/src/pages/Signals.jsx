@@ -1,6 +1,12 @@
 import React from 'react'
 
-export default function Signals({ records, selectedSignalId, onSelectSignal }) {
+export default function Signals({
+  records,
+  selectedSignalId,
+  onSelectSignal,
+  demoModeEnabled,
+  demoStage,
+}) {
   const PRIMARY_FIELDS = [
     'id',
     'record_id',
@@ -264,6 +270,7 @@ export default function Signals({ records, selectedSignalId, onSelectSignal }) {
 
   const selectedRecord = records.find((record) => record.signal_id === selectedSignalId)
   const graph = buildRelationshipGraph(selectedRecord)
+  const signalsDemoStage = graph.nodes.length > 0 ? 'relationship' : demoStage
 
   let selectedRecordDetails = null
   if (!selectedRecord) {
@@ -327,6 +334,21 @@ export default function Signals({ records, selectedSignalId, onSelectSignal }) {
     <section>
       <h2>Signals</h2>
       <p>Read-only relationship signal explorer.</p>
+
+      {demoModeEnabled ? (
+        <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem', marginBottom: '1rem' }}>
+          <h3>Demo Guidance</h3>
+          <p>This page shows live relationship signal records from the current dataset.</p>
+          <p>The record list lets you choose a signal, and the detail panel explains the selected record.</p>
+          <p>The relationship view visualizes that selected record in a read-only diagram.</p>
+          <p>
+            Current demo stage: {signalsDemoStage}.
+            {signalsDemoStage === 'relationship'
+              ? ' Use the graph to narrate the visible relationship structure for this record.'
+              : ' Select a record to continue the story.'}
+          </p>
+        </section>
+      ) : null}
 
       <h3>Record List</h3>
       <ul>
