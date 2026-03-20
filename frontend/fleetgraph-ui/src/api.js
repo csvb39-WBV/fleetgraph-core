@@ -1,6 +1,10 @@
-const API_BASE_URL = 'http://127.0.0.1:8000'
-
 import { DEMO_HEALTH, DEMO_RECORDS, DEMO_SUMMARY } from './demo_fixture.js'
+
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL =
+  typeof RAW_API_BASE_URL === 'string' && RAW_API_BASE_URL.length > 0
+    ? RAW_API_BASE_URL.replace(/\/+$/, '')
+    : 'http://127.0.0.1:8000'
 
 async function getJson(path) {
   const response = await fetch(`${API_BASE_URL}${path}`, { method: 'GET' })
