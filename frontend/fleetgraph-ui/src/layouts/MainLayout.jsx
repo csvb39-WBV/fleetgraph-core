@@ -5,11 +5,11 @@ import Sidebar from '../components/Sidebar.jsx'
 
 export default function MainLayout() {
   return (
-    <div>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', background: '#ffffff' }}>
       <Header />
-      <div>
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
         <Sidebar />
-        <main>
+        <main style={{ flex: 1, padding: '24px', minWidth: 0 }}>
           <Outlet />
         </main>
       </div>

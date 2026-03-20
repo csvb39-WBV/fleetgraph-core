@@ -7,6 +7,14 @@ export default function Signals({
   demoModeEnabled,
   demoStage,
 }) {
+  const cardStyle = {
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '16px',
+    background: '#ffffff',
+  }
+
   const PRIMARY_FIELDS = [
     'id',
     'record_id',
@@ -73,10 +81,11 @@ export default function Signals({
       return <span>Not provided</span>
     }
     return (
-      <div>
+      <div style={{ display: 'grid', gap: '8px' }}>
         {entries.map(([key, nestedValue]) => (
           <div key={key}>
-            <strong>{toReadableLabel(key)}:</strong> {renderValue(nestedValue)}
+            <strong style={{ fontSize: '13px', color: '#111827' }}>{toReadableLabel(key)}:</strong>{' '}
+            <span style={{ fontSize: '14px', color: '#111827' }}>{renderValue(nestedValue)}</span>
           </div>
         ))}
       </div>
@@ -88,7 +97,7 @@ export default function Signals({
       return <span>Not provided</span>
     }
     return (
-      <ul>
+      <ul style={{ margin: 0, paddingLeft: '16px', display: 'grid', gap: '8px' }}>
         {values.map((item, index) => (
           <li key={index}>
             {item === null || item === undefined || item === '' ? (
@@ -151,13 +160,15 @@ export default function Signals({
     }
 
     return (
-      <section>
-        <h4>{title}</h4>
-        <dl>
+      <section style={{ marginBottom: '16px' }}>
+        <h4 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 12px 0', color: '#111827' }}>
+          {title}
+        </h4>
+        <dl style={{ display: 'grid', gap: '12px', margin: 0 }}>
           {presentFieldNames.map((fieldName) => (
             <React.Fragment key={fieldName}>
-              <dt>{toReadableLabel(fieldName)}</dt>
-              <dd>{renderValue(record[fieldName])}</dd>
+              <dt style={{ fontSize: '13px', color: '#6b7280' }}>{toReadableLabel(fieldName)}</dt>
+              <dd style={{ margin: 0, fontSize: '14px', color: '#111827' }}>{renderValue(record[fieldName])}</dd>
             </React.Fragment>
           ))}
         </dl>
@@ -306,12 +317,16 @@ export default function Signals({
 
       const additionalSection = additionalFields.length > 0 ? (
         <section>
-          <h4>Additional Fields</h4>
-          <dl>
+          <h4 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 12px 0', color: '#111827' }}>
+            Additional Fields
+          </h4>
+          <dl style={{ display: 'grid', gap: '12px', margin: 0 }}>
             {additionalFields.map((fieldName) => (
               <React.Fragment key={fieldName}>
-                <dt>{toReadableLabel(fieldName)}</dt>
-                <dd>{renderValue(selectedRecord[fieldName])}</dd>
+                <dt style={{ fontSize: '13px', color: '#6b7280' }}>{toReadableLabel(fieldName)}</dt>
+                <dd style={{ margin: 0, fontSize: '14px', color: '#111827' }}>
+                  {renderValue(selectedRecord[fieldName])}
+                </dd>
               </React.Fragment>
             ))}
           </dl>
@@ -331,95 +346,130 @@ export default function Signals({
   }
 
   return (
-    <section>
-      <h2>Signals</h2>
-      <p>Read-only relationship signal explorer.</p>
+    <section style={{ display: 'grid', gap: '16px', color: '#111827' }}>
+      <div>
+        <h2 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>Signals</h2>
+        <p style={{ fontSize: '16px', color: '#6b7280', margin: '8px 0 0 0' }}>
+          Read-only relationship signal explorer.
+        </p>
+      </div>
 
       {demoModeEnabled ? (
-        <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem', marginBottom: '1rem' }}>
-          <h3>Demo Guidance</h3>
-          <p>This page shows live relationship signal records from the current dataset.</p>
-          <p>The record list lets you choose a signal, and the detail panel explains the selected record.</p>
-          <p>The relationship view visualizes that selected record in a read-only diagram.</p>
-          <p>
+        <section style={cardStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Demo Guidance</h3>
+          <div style={{ display: 'grid', gap: '8px', marginTop: '12px', color: '#6b7280', fontSize: '14px' }}>
+            <p style={{ margin: 0 }}>This page shows live relationship signal records from the current dataset.</p>
+            <p style={{ margin: 0 }}>
+              The record list lets you choose a signal, and the detail panel explains the selected record.
+            </p>
+            <p style={{ margin: 0 }}>
+              The relationship view visualizes that selected record in a read-only diagram.
+            </p>
+            <p style={{ margin: 0 }}>
             Current demo stage: {signalsDemoStage}.
             {signalsDemoStage === 'relationship'
               ? ' Use the graph to narrate the visible relationship structure for this record.'
               : ' Select a record to continue the story.'}
-          </p>
+            </p>
+          </div>
         </section>
       ) : null}
 
-      <h3>Record List</h3>
-      <ul>
-        {records.map((record, index) => (
-          <li key={record.signal_id || index}>
-            <button type="button" onClick={() => onSelectSignal(record.signal_id)}>
-              {record.signal_id === selectedSignalId ? '[Selected] ' : ''}
-              {getRecordLabel(record, index)}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <section style={cardStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Record List</h3>
+        <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0 0 0', display: 'grid', gap: '8px' }}>
+          {records.map((record, index) => (
+            <li key={record.signal_id || index}>
+              <button
+                type="button"
+                onClick={() => onSelectSignal(record.signal_id)}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  background: record.signal_id === selectedSignalId ? '#f3f4f6' : '#ffffff',
+                  color: '#111827',
+                  fontSize: '14px',
+                  fontWeight: record.signal_id === selectedSignalId ? 600 : 400,
+                }}
+              >
+                {record.signal_id === selectedSignalId ? '[Selected] ' : ''}
+                {getRecordLabel(record, index)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      <h3>Selected Record Detail</h3>
-      {selectedRecordDetails}
+      <section style={cardStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Selected Record Detail</h3>
+        <div style={{ marginTop: '16px' }}>{selectedRecordDetails}</div>
+      </section>
 
-      <h3>Relationship View</h3>
-      {graph.nodes.length === 0 ? (
-        <p>No graphable relationship view available for this record.</p>
-      ) : (
-        <svg
-          width="760"
-          height="420"
-          viewBox="0 0 760 420"
-          role="img"
-          aria-label="Deterministic relationship view"
-        >
-          <rect x="1" y="1" width="758" height="418" fill="#ffffff" stroke="#d6d6d6" />
+      <section style={cardStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Relationship View</h3>
+        <div style={{ marginTop: '16px' }}>
+          {graph.nodes.length === 0 ? (
+            <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
+              No graphable relationship view available for this record.
+            </p>
+          ) : (
+            <svg
+              width="760"
+              height="420"
+              viewBox="0 0 760 420"
+              role="img"
+              aria-label="Deterministic relationship view"
+              style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+            >
+              <rect x="1" y="1" width="758" height="418" fill="#ffffff" stroke="#e5e7eb" />
 
-          {graph.nodes.map((node, index) => {
-            const centerX = 380
-            const centerY = 210
-            const radius = 145
-            const angle = (2 * Math.PI * index) / graph.nodes.length - Math.PI / 2
-            const nodeX = centerX + radius * Math.cos(angle)
-            const nodeY = centerY + radius * Math.sin(angle)
+              {graph.nodes.map((node, index) => {
+                const centerX = 380
+                const centerY = 210
+                const radius = 145
+                const angle = (2 * Math.PI * index) / graph.nodes.length - Math.PI / 2
+                const nodeX = centerX + radius * Math.cos(angle)
+                const nodeY = centerY + radius * Math.sin(angle)
 
-            return (
-              <g key={node.id}>
-                <line x1={centerX} y1={centerY} x2={nodeX} y2={nodeY} stroke="#7c7c7c" />
-                <text
-                  x={(centerX + nodeX) / 2}
-                  y={(centerY + nodeY) / 2 - 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#555555"
-                >
-                  {toReadableLabel(node.sourceField)}
-                </text>
-                <circle cx={nodeX} cy={nodeY} r="28" fill="#f1f7ff" stroke="#5c8ed8" />
-                <text
-                  x={nodeX}
-                  y={nodeY + 4}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#1a1a1a"
-                >
-                  {node.label.length > 16 ? `${node.label.slice(0, 16)}...` : node.label}
-                </text>
-              </g>
-            )
-          })}
+                return (
+                  <g key={node.id}>
+                    <line x1={centerX} y1={centerY} x2={nodeX} y2={nodeY} stroke="#e5e7eb" />
+                    <text
+                      x={(centerX + nodeX) / 2}
+                      y={(centerY + nodeY) / 2 - 4}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="#6b7280"
+                    >
+                      {toReadableLabel(node.sourceField)}
+                    </text>
+                    <circle cx={nodeX} cy={nodeY} r="28" fill="#f3f4f6" stroke="#e5e7eb" />
+                    <text
+                      x={nodeX}
+                      y={nodeY + 4}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="#111827"
+                    >
+                      {node.label.length > 16 ? `${node.label.slice(0, 16)}...` : node.label}
+                    </text>
+                  </g>
+                )
+              })}
 
-          <circle cx="380" cy="210" r="42" fill="#e6f3ec" stroke="#4a9166" />
-          <text x="380" y="214" textAnchor="middle" fontSize="11" fill="#1a1a1a">
-            {graph.centralLabel.length > 20
-              ? `${graph.centralLabel.slice(0, 20)}...`
-              : graph.centralLabel}
-          </text>
-        </svg>
-      )}
+              <circle cx="380" cy="210" r="42" fill="#f3f4f6" stroke="#e5e7eb" />
+              <text x="380" y="214" textAnchor="middle" fontSize="11" fill="#111827">
+                {graph.centralLabel.length > 20
+                  ? `${graph.centralLabel.slice(0, 20)}...`
+                  : graph.centralLabel}
+              </text>
+            </svg>
+          )}
+        </div>
+      </section>
     </section>
   )
 }

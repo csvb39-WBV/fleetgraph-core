@@ -1,6 +1,14 @@
 import React from 'react'
 
 export default function Summary({ summary, records, demoModeEnabled, demoStage }) {
+  const cardStyle = {
+    border: '1px solid #e5e7eb',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '16px',
+    background: '#ffffff',
+  }
+
   function toReadableLabel(fieldName) {
     return fieldName
       .split('_')
@@ -19,7 +27,7 @@ export default function Summary({ summary, records, demoModeEnabled, demoStage }
       }
 
       return (
-        <ul style={{ margin: '0.3rem 0 0 1.2rem' }}>
+        <ul style={{ margin: '8px 0 0 16px', display: 'grid', gap: '8px' }}>
           {value.map((item, index) => (
             <li key={index}>{renderValue(item)}</li>
           ))}
@@ -34,7 +42,7 @@ export default function Summary({ summary, records, demoModeEnabled, demoStage }
       }
 
       return (
-        <div style={{ display: 'grid', gap: '0.25rem' }}>
+        <div style={{ display: 'grid', gap: '8px' }}>
           {entries.map(([key, nestedValue]) => (
             <div key={key}>
               <strong>{toReadableLabel(key)}:</strong> {renderValue(nestedValue)}
@@ -64,68 +72,87 @@ export default function Summary({ summary, records, demoModeEnabled, demoStage }
   const summaryEntries = summary ? Object.entries(summary) : []
 
   return (
-    <section style={{ display: 'grid', gap: '1rem' }}>
-      <h2>Summary</h2>
-      <p>Read-only summary view of relationship signal data.</p>
+    <section style={{ display: 'grid', gap: '16px', color: '#111827' }}>
+      <div>
+        <h2 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>Summary</h2>
+        <p style={{ fontSize: '16px', color: '#6b7280', margin: '8px 0 0 0' }}>
+          Read-only summary view of relationship signal data.
+        </p>
+      </div>
 
       {demoModeEnabled ? (
-        <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem' }}>
-          <h3>Demo Guidance</h3>
-          <p>This page provides an executive summary of the current live relationship signal dataset.</p>
-          <p>The overview metrics represent the current loaded records without changing backend truth.</p>
-          <p>The detailed payload below reflects exactly what the backend summary is reporting.</p>
-          <p>Current demo stage: {demoStage}.</p>
+        <section style={cardStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Demo Guidance</h3>
+          <div style={{ display: 'grid', gap: '8px', marginTop: '12px', color: '#6b7280', fontSize: '14px' }}>
+            <p style={{ margin: 0 }}>
+              This page provides an executive summary of the current live relationship signal dataset.
+            </p>
+            <p style={{ margin: 0 }}>
+              The overview metrics represent the current loaded records without changing backend truth.
+            </p>
+            <p style={{ margin: 0 }}>
+              The detailed payload below reflects exactly what the backend summary is reporting.
+            </p>
+            <p style={{ margin: 0 }}>Current demo stage: {demoStage}.</p>
+          </div>
         </section>
       ) : null}
 
-      <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem' }}>
-        <h3>Overview</h3>
+      <section style={cardStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Overview</h3>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, minmax(140px, 1fr))',
-            gap: '0.5rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: '16px',
+            marginTop: '16px',
           }}
         >
-          <div style={{ border: '1px solid #e2e2e2', padding: '0.5rem' }}>
-            <strong>Total Records</strong>
-            <div>{totalRecords}</div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '13px', color: '#6b7280' }}>Total Records</div>
+            <div style={{ fontSize: '16px', color: '#111827', fontWeight: 700, marginTop: '8px' }}>{totalRecords}</div>
           </div>
 
           {totalOrganizations !== null ? (
-            <div style={{ border: '1px solid #e2e2e2', padding: '0.5rem' }}>
-              <strong>Total Organizations</strong>
-              <div>{totalOrganizations}</div>
+            <div style={cardStyle}>
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>Total Organizations</div>
+              <div style={{ fontSize: '16px', color: '#111827', fontWeight: 700, marginTop: '8px' }}>
+                {totalOrganizations}
+              </div>
             </div>
           ) : null}
 
           {totalLinks !== null ? (
-            <div style={{ border: '1px solid #e2e2e2', padding: '0.5rem' }}>
-              <strong>Total Links</strong>
-              <div>{totalLinks}</div>
+            <div style={cardStyle}>
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>Total Links</div>
+              <div style={{ fontSize: '16px', color: '#111827', fontWeight: 700, marginTop: '8px' }}>
+                {totalLinks}
+              </div>
             </div>
           ) : null}
 
-          <div style={{ border: '1px solid #e2e2e2', padding: '0.5rem' }}>
-            <strong>Domain Count</strong>
-            <div>{domainCount}</div>
+          <div style={cardStyle}>
+            <div style={{ fontSize: '13px', color: '#6b7280' }}>Domain Count</div>
+            <div style={{ fontSize: '16px', color: '#111827', fontWeight: 700, marginTop: '8px' }}>{domainCount}</div>
           </div>
         </div>
       </section>
 
-      <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem' }}>
-        <h3>Summary Details</h3>
+      <section style={cardStyle}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Summary Details</h3>
 
         {summaryEntries.length === 0 ? (
-          <p>No summary data available.</p>
+          <p style={{ marginTop: '16px', color: '#6b7280', fontSize: '14px' }}>No summary data available.</p>
         ) : (
-          <dl style={{ display: 'grid', gap: '0.6rem' }}>
+          <dl style={{ display: 'grid', gap: '12px', marginTop: '16px', marginBottom: 0 }}>
             {summaryEntries.map(([fieldName, fieldValue]) => (
               <React.Fragment key={fieldName}>
                 <dt>
-                  <strong>{toReadableLabel(fieldName)}</strong>
+                  <strong style={{ fontSize: '13px', color: '#6b7280' }}>{toReadableLabel(fieldName)}</strong>
                 </dt>
-                <dd style={{ marginInlineStart: '1rem' }}>{renderValue(fieldValue)}</dd>
+                <dd style={{ marginInlineStart: '16px', marginBottom: 0, fontSize: '14px', color: '#111827' }}>
+                  {renderValue(fieldValue)}
+                </dd>
               </React.Fragment>
             ))}
           </dl>

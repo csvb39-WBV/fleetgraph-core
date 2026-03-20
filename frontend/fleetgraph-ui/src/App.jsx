@@ -58,26 +58,79 @@ export default function App() {
   }, [])
 
   if (uiState === 'loading') {
-    return <main>Loading relationship signal data...</main>
+    return (
+      <main
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '24px',
+          color: '#111827',
+        }}
+      >
+        Loading relationship signal data...
+      </main>
+    )
   }
 
   if (uiState === 'error') {
-    return <main>Error loading relationship signal data: {errorMessage}</main>
+    return (
+      <main
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '24px',
+          color: '#111827',
+        }}
+      >
+        Error loading relationship signal data: {errorMessage}
+      </main>
+    )
   }
 
   if (uiState === 'empty') {
-    return <main>No relationship signal records were returned.</main>
+    return (
+      <main
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '24px',
+          color: '#111827',
+        }}
+      >
+        No relationship signal records were returned.
+      </main>
+    )
   }
 
   return (
-    <div>
-      <section style={{ border: '1px solid #d8d8d8', padding: '0.75rem', marginBottom: '1rem' }}>
-        <strong>Demo Mode</strong>
-        <div style={{ marginTop: '0.5rem' }}>
-          <button type="button" onClick={() => setDemoModeEnabled((current) => !current)}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px', color: '#111827' }}>
+      <section
+        style={{
+          border: '1px solid #e5e7eb',
+          borderRadius: '8px',
+          padding: '16px',
+          marginBottom: '16px',
+          background: '#ffffff',
+        }}
+      >
+        <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>Demo Mode</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setDemoModeEnabled((current) => !current)}
+            style={{
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              background: '#f3f4f6',
+              color: '#111827',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
             {demoModeEnabled ? 'On' : 'Off'}
           </button>
-          <span style={{ marginLeft: '0.75rem' }}>Current Stage: {demoStage}</span>
+          <span style={{ color: '#6b7280', fontSize: '14px' }}>Current Stage: {demoStage}</span>
         </div>
       </section>
 
