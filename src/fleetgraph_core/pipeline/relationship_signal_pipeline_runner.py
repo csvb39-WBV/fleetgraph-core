@@ -20,6 +20,7 @@ from src.fleetgraph_core.api.relationship_signal_api_reader import (
     get_relationship_signal_output_summary,
     load_relationship_signal_output,
 )
+from src.fleetgraph_core.discovery.evidence_acquisition import acquire_evidence
 
 
 def validate_pipeline_input_records(records: List[Dict[str, Any]]) -> None:
@@ -52,6 +53,7 @@ def run_relationship_signal_pipeline(
     aggregate_records = assemble_shared_domain_aggregates(link_records)
     signal_records = assemble_relationship_signals(aggregate_records)
     formatted_records = assemble_formatted_relationship_signals(signal_records)
+    formatted_records = acquire_evidence(formatted_records)
     written_path = write_relationship_signal_pipeline_output(formatted_records, output_path)
     payload = load_relationship_signal_output(written_path)
     summary = build_pipeline_summary(written_path, payload)
