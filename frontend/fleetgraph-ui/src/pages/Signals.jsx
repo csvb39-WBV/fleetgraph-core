@@ -283,6 +283,78 @@ export default function Signals({
   const graph = buildRelationshipGraph(selectedRecord)
   const signalsDemoStage = graph.nodes.length > 0 ? 'relationship' : demoStage
 
+  let interpretationCategory = 'Unspecified Relationship'
+  let interpretationStrength = 'Limited'
+  let interpretationInsight =
+    'This record contains a possible relationship indicator derived from the available signal data.'
+  let interpretationWhyItMatters =
+    'Even limited signals can provide useful starting points for deeper relationship investigation.'
+
+  if (selectedRecord) {
+    const relationshipType = selectedRecord.relationship_type
+    const connectionType = selectedRecord.connection_type
+    const signalType = selectedRecord.signal_type
+    const linkCount = selectedRecord.link_count
+    const organizationCount = selectedRecord.organization_count
+    const sharedDomainCount = selectedRecord.shared_domain_count
+    const domainsValue = selectedRecord.domains
+
+    if (relationshipType !== null && relationshipType !== undefined && relationshipType !== '') {
+      interpretationCategory = toReadableLabel(String(relationshipType))
+    } else if (connectionType !== null && connectionType !== undefined && connectionType !== '') {
+      interpretationCategory = toReadableLabel(String(connectionType))
+    } else if (signalType !== null && signalType !== undefined && signalType !== '') {
+      interpretationCategory = toReadableLabel(String(signalType))
+    }
+
+    if (
+      (typeof linkCount === 'number' && linkCount >= 4) ||
+      (typeof organizationCount === 'number' && organizationCount >= 3) ||
+      (typeof sharedDomainCount === 'number' && sharedDomainCount >= 2)
+    ) {
+      interpretationStrength = 'Strong'
+    } else if (
+      (typeof linkCount === 'number' && (linkCount === 2 || linkCount === 3)) ||
+      (typeof organizationCount === 'number' && organizationCount === 2) ||
+      relationshipType === 'shared_domain'
+    ) {
+      interpretationStrength = 'Moderate'
+    }
+
+    if (relationshipType === 'shared_domain') {
+      interpretationInsight =
+        'This record suggests that multiple entities may be connected through shared domain infrastructure.'
+    } else if (relationshipType !== null && relationshipType !== undefined && relationshipType !== '') {
+      interpretationInsight =
+        'This record indicates a potential relationship based on the reported relationship type.'
+    } else if (signalType !== null && signalType !== undefined && signalType !== '') {
+      interpretationInsight =
+        'This record identifies a potential relationship signal between entities or infrastructure.'
+    }
+
+    if (typeof linkCount === 'number' && linkCount >= 4) {
+      interpretationInsight +=
+        ' Multiple links reinforce the likelihood that this relationship is meaningful rather than incidental.'
+    } else if (typeof organizationCount === 'number' && organizationCount >= 2) {
+      interpretationInsight +=
+        ' The presence of multiple organizations increases the relevance of this signal.'
+    } else if (Array.isArray(domainsValue) && domainsValue.length > 1) {
+      interpretationInsight +=
+        ' Multiple domains in the record suggest broader shared infrastructure or affiliation patterns.'
+    }
+
+    if (relationshipType === 'shared_domain') {
+      interpretationWhyItMatters =
+        'Shared domain relationships can reveal hidden operational overlap, vendor linkage, or affiliate structure that may not be obvious from organization names alone.'
+    } else if (typeof organizationCount === 'number' && organizationCount >= 2) {
+      interpretationWhyItMatters =
+        'Multi-organization signals may indicate meaningful connections worth further investigation for ownership, partnership, vendor exposure, or network affiliation.'
+    } else if (typeof linkCount === 'number' && linkCount >= 2) {
+      interpretationWhyItMatters =
+        'Repeated links can increase confidence that the observed relationship is operationally relevant.'
+    }
+  }
+
   let selectedRecordDetails = null
   if (!selectedRecord) {
     selectedRecordDetails = <p>No record selected.</p>
@@ -407,6 +479,38 @@ export default function Signals({
         <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Selected Record Detail</h3>
         <div style={{ marginTop: '16px' }}>{selectedRecordDetails}</div>
       </section>
+
+      {selectedRecord ? (
+        <section style={cardStyle}>
+          <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Interpretation</h3>
+          <div style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
+            <div>
+              <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Insight</div>
+              <p style={{ margin: 0, fontSize: '14px', color: '#111827' }}>{interpretationInsight}</p>
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
+                Relationship Category
+              </div>
+              <div style={{ margin: 0, fontSize: '15px', color: '#111827', fontWeight: 600 }}>
+                {interpretationCategory}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Strength</div>
+              <div style={{ margin: 0, fontSize: '15px', color: '#111827', fontWeight: 600 }}>
+                {interpretationStrength}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Why It Matters</div>
+              <p style={{ margin: 0, fontSize: '14px', color: '#111827' }}>
+                {interpretationWhyItMatters}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section style={cardStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 700, margin: 0 }}>Relationship View</h3>
