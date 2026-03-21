@@ -1,4 +1,4 @@
-"""Tests for deterministic canonical organization deduplication."""
+"""Tests for deterministic canonical organization duplicate suppression."""
 
 import copy
 import pathlib
@@ -12,10 +12,9 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from fleetgraph_core.identity_resolution.canonical_organization_deduper import (
-    assemble_unified_canonical_organizations,
     build_deduplication_key,
-    build_unified_identity,
-    merge_canonical_group,
+    deduplicate_canonical_organizations,
+    suppress_duplicate_canonical_organizations,
     validate_canonical_organizations,
 )
 
@@ -90,16 +89,11 @@ def test_validate_canonical_organizations_rejects_incorrect_candidate_state():
         raise AssertionError("ValueError was not raised for bad candidate_state")
 
 
-def test_validate_canonical_organizations_rejects_duplicate_canonical_organization_id():
-    record1 = sample_canonical_record("can_1")
-    record2 = sample_canonical_record("can_1")
+def test_validate_canonical_organizations_allows_duplicate_canonical_organization_id():
+    record1 = sample_canonical_record("can_1", key="key1")
+    record2 = sample_canonical_record("can_1", key="key2")
 
-    try:
-        validate_canonical_organizations([record1, record2])
-    except ValueError as error:
-        assert str(error) == "duplicate canonical_organization_id detected: can_1"
-    else:
-        raise AssertionError("ValueError was not raised for duplicate canonical_organization_id")
+    validate_canonical_organizations([record1, record2])
 
 
 def test_build_deduplication_key_constructs_key():
@@ -108,69 +102,98 @@ def test_build_deduplication_key_constructs_key():
     assert key == ("key1",)
 
 
-def test_merge_canonical_group_merges_duplicates():
-    group = [
-        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
-        sample_canonical_record("can_2", "key1", "Org A", "a.com", "src2"),
-    ]
-
-    merged = merge_canonical_group(group)
-
-    assert merged["unified_organization_id"] == "key1::unified"
-    assert merged["canonical_organization_ids"] == ["can_1", "can_2"]
-    assert merged["source_ids"] == ["src1", "src2"]
-    assert merged["canonical_organization_name"] == "Org A"
-    assert merged["domain_candidate"] == "a.com"
-    assert merged["candidate_state"] == "unified"
-
-
-def test_merge_canonical_group_selects_first_record_for_name_and_domain():
-    group = [
-        sample_canonical_record("can_2", "key1", "Org B", "b.com", "src1"),
-        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src2"),
-    ]
-
-    merged = merge_canonical_group(group)
-
-    # Sorted by canonical_organization_id, so can_1 first
-    assert merged["canonical_organization_name"] == "Org A"
-    assert merged["domain_candidate"] == "a.com"
-
-
-def test_build_unified_identity_is_deterministic():
-    record = {
-        "unified_organization_id": "key1::unified",
-        "canonical_organization_ids": ["can_1"],
-        "canonical_organization_name": "Org A",
-        "canonical_organization_key": "key1",
-        "domain_candidate": "a.com",
-        "source_ids": ["src1"],
-        "candidate_state": "unified",
-    }
-
-    identity = build_unified_identity(record)
-    assert identity == ("a.com", "key1", "key1::unified")
-
-
-def test_assemble_unified_canonical_organizations_sorts_output():
+def test_deduplicate_canonical_organizations_keeps_first_seen_duplicate_key():
     records = [
-        sample_canonical_record("can_2", "key2", "Org B", "b.com", "src2"),
         sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
+        sample_canonical_record("can_2", "key1", "Org A Updated", "a.com", "src2"),
     ]
 
-    result = assemble_unified_canonical_organizations(records)
+    result = deduplicate_canonical_organizations(records)
+
+    assert len(result) == 1
+    assert result[0]["canonical_organization_id"] == "can_1"
+    assert result[0]["canonical_organization_key"] == "key1"
+
+
+def test_deduplicate_canonical_organizations_preserves_different_keys():
+    records = [
+        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
+        sample_canonical_record("can_2", "key2", "Org B", "b.com", "src2"),
+    ]
+
+    result = deduplicate_canonical_organizations(records)
 
     assert len(result) == 2
-    assert result[0]["domain_candidate"] == "a.com"
-    assert result[1]["domain_candidate"] == "b.com"
+    assert [item["canonical_organization_key"] for item in result] == ["key1", "key2"]
 
 
-def test_assemble_unified_canonical_organizations_does_not_mutate_inputs():
+def test_deduplicate_canonical_organizations_stable_ordering_with_interleaved_duplicates():
+    records = [
+        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
+        sample_canonical_record("can_2", "key2", "Org B", "b.com", "src2"),
+        sample_canonical_record("can_3", "key1", "Org A Again", "a.com", "src3"),
+        sample_canonical_record("can_4", "key3", "Org C", "c.com", "src4"),
+    ]
+
+    result = deduplicate_canonical_organizations(records)
+
+    assert [item["canonical_organization_id"] for item in result] == ["can_1", "can_2", "can_4"]
+
+
+def test_suppress_duplicate_canonical_organizations_returns_empty_for_empty_input():
+    result = suppress_duplicate_canonical_organizations([])
+
+    assert result == []
+
+
+def test_suppress_duplicate_canonical_organizations_deterministic_for_same_input():
+    records = [
+        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
+        sample_canonical_record("can_2", "key2", "Org B", "b.com", "src2"),
+        sample_canonical_record("can_3", "key1", "Org A Again", "a.com", "src3"),
+    ]
+
+    first = suppress_duplicate_canonical_organizations(records)
+    second = suppress_duplicate_canonical_organizations(records)
+
+    assert first == second
+
+
+def test_suppress_duplicate_canonical_organizations_preserves_schema_and_values():
+    records = [
+        sample_canonical_record("can_1", "key1", "Org A", "a.com", "src1"),
+        sample_canonical_record("can_2", "key2", "Org B", "b.com", "src2"),
+    ]
+
+    output = suppress_duplicate_canonical_organizations(records)
+
+    assert len(output) == 2
+    for item in output:
+        assert tuple(item.keys()) == (
+            "canonical_organization_id",
+            "organization_domain_candidate_id",
+            "organization_candidate_id",
+            "candidate_id",
+            "seed_id",
+            "source_id",
+            "source_label",
+            "canonical_organization_name",
+            "canonical_organization_key",
+            "domain_candidate",
+            "candidate_state",
+        )
+        assert item["candidate_state"] == "canonicalized"
+
+
+def test_suppress_duplicate_canonical_organizations_does_not_mutate_inputs():
     records = [
         sample_canonical_record("can_1", "key1"),
-        sample_canonical_record("can_2", "key1"),
+        sample_canonical_record("can_2", "key2"),
     ]
     original = copy.deepcopy(records)
 
-    _ = assemble_unified_canonical_organizations(records)
+    output = suppress_duplicate_canonical_organizations(records)
+
     assert records == original
+    assert output is not records
+    assert output[0] is not records[0]
