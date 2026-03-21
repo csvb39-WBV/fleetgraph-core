@@ -3,7 +3,7 @@ MB1 Runtime Execution Layer.
 
 Pure in-process runtime coordinator that executes one FleetGraph run
 deterministically from FG5-MB1 records, enforces explicit duplicate
-rejection based on caller-supplied execution registry, and returns
+rejection based on caller-supplied execution registry object, and returns
 a run-level result envelope.
 
 Idempotency is caller-managed via execution registry.
@@ -12,9 +12,9 @@ No persistence, scheduling, email, billing, or network I/O.
 
 import hashlib
 from typing import Any
-from copy import deepcopy
 
 from fleetgraph_core.output.workflow_run_director import apply_workflow_run_director
+from fleetgraph_core.runtime.execution_registry import ExecutionRegistry
 
 
 # Fields required for run_id construction
@@ -115,9 +115,15 @@ def validate_runtime_request(records: list[dict[str, Any]]) -> None:
             raise TypeError(f"Record at index {i} must be a dict")
 
 
+def validate_execution_registry(execution_registry: ExecutionRegistry) -> None:
+    """Validate that the caller provided an execution registry object."""
+    if not isinstance(execution_registry, ExecutionRegistry):
+        raise TypeError("execution_registry must be an ExecutionRegistry instance")
+
+
 def apply_runtime_execution(
     records: list[dict[str, Any]],
-    execution_registry: set[str],
+    execution_registry: ExecutionRegistry,
 ) -> dict[str, Any]:
     """
     Execute a single FleetGraph run with FG5-MB1 records.
@@ -125,7 +131,7 @@ def apply_runtime_execution(
     Process:
     1. Validate records format
     2. Compute deterministic run_id from full record set
-    3. Check caller-supplied execution registry for duplicate
+    3. Check caller-supplied execution registry object for duplicate
     4. If duplicate found: raise ValueError
     5. If new: execute apply_workflow_run_director
     6. Build and return runtime result envelope
@@ -137,8 +143,8 @@ def apply_runtime_execution(
 
     Args:
         records: List of FG5-MB1 format records
-        execution_registry: Set of already-executed run_ids.
-                           Required; caller must provide and maintain.
+        execution_registry: Registry of already-executed run_ids.
+                   Required; caller must provide and maintain.
 
     Returns:
         Runtime result envelope dict with locked structure:
@@ -152,22 +158,20 @@ def apply_runtime_execution(
 
     Raises:
         TypeError: if records format validation fails
+                   or execution_registry is not an ExecutionRegistry
         ValueError: if run_id found in execution_registry, or if record
                    missing required fields for run_id construction
         Exception: if apply_workflow_run_director raises (propagated unchanged)
     """
     # Step 1: Validate records format
     validate_runtime_request(records)
+    validate_execution_registry(execution_registry)
 
     # Step 2: Compute deterministic run_id from full record set
     run_id = _build_run_id_from_records(records)
 
     # Step 3 & 4: Check caller-supplied execution registry
-    if run_id in execution_registry:
-        raise ValueError(
-            f"Duplicate execution detected. Run {run_id} has already been executed. "
-            "Add run_id to execution registry only after successful execution."
-        )
+    execution_registry.assert_not_executed(run_id)
 
     # Step 5: Execute workflow
     workflow_result = apply_workflow_run_director(records=records)
