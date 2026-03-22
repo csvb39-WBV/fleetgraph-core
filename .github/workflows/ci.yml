@@ -1,0 +1,32 @@
+name: FleetGraph CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run repository structure foundation test
+        run: pytest -q tests/infrastructure/test_repository_structure_foundation.py
+
+      - name: Run repository hygiene foundation test
+        run: pytest -q tests/infrastructure/test_repository_hygiene_foundation.py
