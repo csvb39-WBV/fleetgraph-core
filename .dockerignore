@@ -3,10 +3,16 @@ __pycache__/
 .env*
 tests/
 docs/
+.github/
+frontend/
+infra/
 .vscode/
 .idea/
 *.swp
 *.swo
+*.log
+.coverage
+htmlcov/
 dist/
 build/
 *.egg-info/
