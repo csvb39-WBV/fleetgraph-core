@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 from typing import Any, Mapping
 
 
@@ -143,6 +144,48 @@ def load_runtime_config(environ: Mapping[str, str] | None = None) -> RuntimeConf
         port_value=source_environ.get(ENV_API_PORT, str(DEFAULT_API_PORT)),
         debug_value=source_environ.get(ENV_DEBUG, "false"),
         log_level_value=source_environ.get(ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL),
+    )
+
+
+def _parse_env_file_contents(raw_text: str) -> dict[str, str]:
+    parsed_values: dict[str, str] = {}
+
+    for line_number, raw_line in enumerate(raw_text.splitlines(), start=1):
+        stripped_line = raw_line.strip()
+
+        if not stripped_line:
+            continue
+        if stripped_line.startswith("#"):
+            continue
+        if "=" not in raw_line:
+            raise ValueError(f"Malformed env file line {line_number}: missing '=' separator")
+
+        key_part, value_part = raw_line.split("=", 1)
+        key = key_part.strip()
+        value = value_part.strip()
+
+        if not key:
+            raise ValueError(f"Malformed env file line {line_number}: empty key")
+        if key in parsed_values:
+            raise ValueError(f"Duplicate env file key: {key}")
+
+        parsed_values[key] = value
+
+    return parsed_values
+
+
+def load_runtime_config_from_env_file(path: str | os.PathLike[str] | Path) -> RuntimeConfig:
+    env_file_path = Path(path)
+    file_contents = env_file_path.read_text(encoding="utf-8")
+    parsed_values = _parse_env_file_contents(file_contents)
+    return build_runtime_config(
+        {
+            "environment": parsed_values.get(ENV_RUNTIME_ENVIRONMENT, DEFAULT_ENVIRONMENT),
+            "api_host": parsed_values.get(ENV_API_HOST, DEFAULT_API_HOST),
+            "api_port": parsed_values.get(ENV_API_PORT, DEFAULT_API_PORT),
+            "debug": parsed_values.get(ENV_DEBUG, DEFAULT_DEBUG),
+            "log_level": parsed_values.get(ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL),
+        }
     )
 
 
