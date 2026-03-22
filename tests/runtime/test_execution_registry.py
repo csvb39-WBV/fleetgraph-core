@@ -1,78 +1,191 @@
-"""Tests for the MB1 execution registry object."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
 
 import pytest
 
-from fleetgraph_core.runtime.execution_registry import ExecutionRegistry
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = REPO_ROOT / "src"
+
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 
-class TestExecutionRegistry:
-    """Test execution registry behavior."""
+from fleetgraph_core.runtime.execution_registry import (
+    ExecutionRecord,
+    ExecutionRegistry,
+    build_execution_registry,
+)
 
-    def test_empty_registry_starts_empty(self):
-        registry = ExecutionRegistry()
 
-        assert len(registry) == 0
-        assert registry.get_all_run_ids() == set()
+def test_build_execution_registry_returns_empty_registry() -> None:
+    registry = build_execution_registry()
 
-    def test_registry_accepts_initial_run_ids(self):
-        registry = ExecutionRegistry({"runtime:1:abc", "runtime:2:def"})
+    assert isinstance(registry, ExecutionRegistry)
+    assert registry.count() == 0
+    assert registry.list_records() == []
 
-        assert len(registry) == 2
-        assert registry.has_run("runtime:1:abc")
-        assert registry.has_run("runtime:2:def")
 
-    def test_register_adds_run_id(self):
-        registry = ExecutionRegistry()
+def test_register_stores_record_and_returns_validated_copy() -> None:
+    registry = build_execution_registry()
 
-        registry.register_run("runtime:1:abc")
+    stored_record = registry.register(
+        ExecutionRecord(
+            execution_id=" exec-001 ",
+            environment=" dev ",
+            status=" pending ",
+            signal_topic=" fleetgraph-topic ",
+        )
+    )
 
-        assert registry.has_run("runtime:1:abc")
-        assert "runtime:1:abc" in registry
-        assert len(registry) == 1
+    assert stored_record == ExecutionRecord(
+        execution_id="exec-001",
+        environment="dev",
+        status="pending",
+        signal_topic="fleetgraph-topic",
+    )
+    assert registry.count() == 1
+    assert registry.get("exec-001") == stored_record
 
-    def test_get_all_run_ids_returns_copy(self):
-        registry = ExecutionRegistry({"runtime:1:abc"})
 
-        snapshot = registry.get_all_run_ids()
-        snapshot.add("runtime:2:def")
+def test_register_rejects_duplicate_execution_id() -> None:
+    registry = build_execution_registry()
 
-        assert registry.get_all_run_ids() == {"runtime:1:abc"}
+    registry.register(
+        ExecutionRecord(
+            execution_id="exec-001",
+            environment="dev",
+            status="pending",
+            signal_topic="fleetgraph-topic",
+        )
+    )
 
-    def test_registering_same_run_id_twice_keeps_unique_membership(self):
-        registry = ExecutionRegistry()
+    with pytest.raises(ValueError, match="Duplicate execution_id: exec-001"):
+        registry.register(
+            ExecutionRecord(
+                execution_id="exec-001",
+                environment="dev",
+                status="running",
+                signal_topic="fleetgraph-topic",
+            )
+        )
 
-        registry.register_run("runtime:1:abc")
-        registry.register_run("runtime:1:abc")
 
-        assert len(registry) == 1
+def test_get_returns_none_for_unknown_execution_id() -> None:
+    registry = build_execution_registry()
 
-    def test_assert_not_executed_raises_value_error_on_duplicate(self):
-        registry = ExecutionRegistry({"runtime:1:abc"})
+    assert registry.get("missing-exec") is None
 
-        with pytest.raises(ValueError, match="Duplicate execution detected"):
-            registry.assert_not_executed("runtime:1:abc")
 
-    def test_assert_not_executed_allows_new_run_id(self):
-        registry = ExecutionRegistry({"runtime:1:abc"})
+def test_list_records_preserves_insertion_order() -> None:
+    registry = build_execution_registry()
 
-        registry.assert_not_executed("runtime:2:def")
+    first = registry.register(
+        ExecutionRecord(
+            execution_id="exec-001",
+            environment="dev",
+            status="pending",
+            signal_topic="topic-a",
+        )
+    )
+    second = registry.register(
+        ExecutionRecord(
+            execution_id="exec-002",
+            environment="test",
+            status="running",
+            signal_topic="topic-b",
+        )
+    )
 
-    def test_constructor_rejects_non_set_initial_run_ids(self):
-        with pytest.raises(TypeError, match=r"initial_run_ids must be a set\[str\] or None"):
-            ExecutionRegistry(["runtime:1:abc"])
+    assert registry.list_records() == [first, second]
 
-    def test_constructor_rejects_non_string_run_ids(self):
-        with pytest.raises(TypeError, match="initial_run_ids must contain only strings"):
-            ExecutionRegistry({"runtime:1:abc", 123})
 
-    def test_methods_reject_non_string_run_id(self):
-        registry = ExecutionRegistry()
+@pytest.mark.parametrize(
+    ("field_name", "record"),
+    [
+        (
+            "execution_id",
+            ExecutionRecord(
+                execution_id="   ",
+                environment="dev",
+                status="pending",
+                signal_topic="topic-a",
+            ),
+        ),
+        (
+            "environment",
+            ExecutionRecord(
+                execution_id="exec-001",
+                environment="   ",
+                status="pending",
+                signal_topic="topic-a",
+            ),
+        ),
+        (
+            "status",
+            ExecutionRecord(
+                execution_id="exec-001",
+                environment="dev",
+                status="   ",
+                signal_topic="topic-a",
+            ),
+        ),
+        (
+            "signal_topic",
+            ExecutionRecord(
+                execution_id="exec-001",
+                environment="dev",
+                status="pending",
+                signal_topic="   ",
+            ),
+        ),
+    ],
+)
+def test_register_rejects_blank_required_fields(
+    field_name: str,
+    record: ExecutionRecord,
+) -> None:
+    registry = build_execution_registry()
 
-        with pytest.raises(TypeError, match="run_id must be a string"):
-            registry.has_run(123)
+    with pytest.raises(ValueError, match=rf"{field_name} must be a non-empty string"):
+        registry.register(record)
 
-        with pytest.raises(TypeError, match="run_id must be a string"):
-            registry.register_run(123)
 
-        with pytest.raises(TypeError, match="run_id must be a string"):
-            registry.assert_not_executed(123)
+def test_get_rejects_blank_execution_id() -> None:
+    registry = build_execution_registry()
+
+    with pytest.raises(ValueError, match="execution_id must be a non-empty string"):
+        registry.get("   ")
+
+
+def test_register_rejects_non_execution_record() -> None:
+    registry = build_execution_registry()
+
+    with pytest.raises(ValueError, match="record must be an ExecutionRecord"):
+        registry.register(  # type: ignore[arg-type]
+            {
+                "execution_id": "exec-001",
+                "environment": "dev",
+                "status": "pending",
+                "signal_topic": "topic-a",
+            }
+        )
+
+
+def test_registry_is_deterministic() -> None:
+    registry = build_execution_registry()
+
+    first = registry.register(
+        ExecutionRecord(
+            execution_id="exec-001",
+            environment="dev",
+            status="pending",
+            signal_topic="topic-a",
+        )
+    )
+    second = registry.get("exec-001")
+
+    assert first == second
+    assert registry.count() == 1
