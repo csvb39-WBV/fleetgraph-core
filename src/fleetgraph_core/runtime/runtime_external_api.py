@@ -1,47 +1,42 @@
-"""
-MB10 External API Layer.
+from __future__ import annotations
 
-Provides a transport-ready envelope boundary over MB7-A without introducing
-web framework dependencies.
-"""
+from typing import Any
 
-from fleetgraph_core.runtime.execution_registry import ExecutionRegistry
-from fleetgraph_core.runtime.runtime_api_adapter import apply_runtime_api_request
-
-_ENVELOPE_REQUIRED_FIELDS: frozenset[str] = frozenset({"request"})
+from fleetgraph_core.runtime.runtime_bootstrap import (
+    RuntimeBootstrap,
+    build_runtime_bootstrap_summary,
+)
 
 
-def handle_runtime_request(
-    request_envelope: dict[str, object],
-    execution_registry: ExecutionRegistry,
-) -> dict[str, object]:
-    """Validate request envelope, delegate to MB7-A, and wrap response."""
-    if not isinstance(request_envelope, dict):
-        raise TypeError("request_envelope must be a dict")
+_EXPECTED_RUNTIME_SUMMARY_KEYS = (
+    "environment",
+    "api_host",
+    "api_port",
+    "debug",
+    "log_level",
+    "logger_name",
+    "logger_level",
+)
 
-    present = set(request_envelope.keys())
 
-    missing = _ENVELOPE_REQUIRED_FIELDS - present
-    if missing:
-        raise ValueError(
-            f"request_envelope is missing required fields: {', '.join(sorted(missing))}"
-        )
+def build_runtime_external_api_response(bootstrap: RuntimeBootstrap) -> dict[str, Any]:
+    if not isinstance(bootstrap, RuntimeBootstrap):
+        raise ValueError("bootstrap must be a RuntimeBootstrap instance")
 
-    extra = present - _ENVELOPE_REQUIRED_FIELDS
-    if extra:
-        raise ValueError(
-            f"request_envelope contains unexpected fields: {', '.join(sorted(extra))}"
-        )
-
-    request = request_envelope["request"]
-    if not isinstance(request, dict):
-        raise TypeError("request_envelope field 'request' must be a dict")
-
-    response = apply_runtime_api_request(
-        api_request=request,
-        execution_registry=execution_registry,
-    )
+    runtime_summary = build_runtime_bootstrap_summary(bootstrap)
+    if tuple(runtime_summary.keys()) != _EXPECTED_RUNTIME_SUMMARY_KEYS:
+        raise ValueError("Runtime bootstrap summary does not match external API contract")
 
     return {
-        "response": response,
+        "response_type": "runtime_external_api_response",
+        "response_schema_version": "1.0",
+        "runtime": {
+            "environment": runtime_summary["environment"],
+            "api_host": runtime_summary["api_host"],
+            "api_port": runtime_summary["api_port"],
+            "debug": runtime_summary["debug"],
+            "log_level": runtime_summary["log_level"],
+            "logger_name": runtime_summary["logger_name"],
+            "logger_level": runtime_summary["logger_level"],
+        },
     }
