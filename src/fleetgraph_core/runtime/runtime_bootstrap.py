@@ -60,3 +60,22 @@ def build_runtime_bootstrap_from_environment() -> RuntimeBootstrap:
 def build_runtime_bootstrap_from_env_file(path: str | Path) -> RuntimeBootstrap:
     runtime_config = load_runtime_config_from_env_file(path)
     return _build_runtime_bootstrap_from_config(runtime_config)
+
+
+def build_runtime_bootstrap_summary(bootstrap: RuntimeBootstrap) -> dict[str, Any]:
+    if not isinstance(bootstrap, RuntimeBootstrap):
+        raise ValueError("bootstrap must be a RuntimeBootstrap instance")
+
+    logger_level_name = logging.getLevelName(bootstrap.logger.level)
+    if not isinstance(logger_level_name, str):
+        logger_level_name = str(logger_level_name)
+
+    return {
+        "environment": bootstrap.config.environment,
+        "api_host": bootstrap.config.api_host,
+        "api_port": bootstrap.config.api_port,
+        "debug": bootstrap.config.debug,
+        "log_level": bootstrap.config.log_level,
+        "logger_name": bootstrap.logger.name,
+        "logger_level": logger_level_name.upper(),
+    }

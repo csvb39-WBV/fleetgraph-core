@@ -20,6 +20,7 @@ from fleetgraph_core.runtime.runtime_bootstrap import (
     build_runtime_bootstrap,
     build_runtime_bootstrap_from_env_file,
     build_runtime_bootstrap_from_environment,
+    build_runtime_bootstrap_summary,
 )
 
 
@@ -200,3 +201,160 @@ def test_repeated_bootstrap_with_same_inputs_is_deterministic(
     assert first_bootstrap.logger is second_bootstrap.logger
     assert first_bootstrap.logger.name == "fleetgraph.runtime.staging"
     assert second_bootstrap.logger.level == logging.INFO
+
+
+def test_build_runtime_bootstrap_summary_returns_exact_locked_field_set() -> None:
+    bootstrap = build_runtime_bootstrap(
+        {
+            "environment": "development",
+            "api_host": "127.0.0.1",
+            "api_port": 8000,
+            "debug": True,
+            "log_level": "DEBUG",
+        }
+    )
+
+    summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert set(summary.keys()) == {
+        "environment",
+        "api_host",
+        "api_port",
+        "debug",
+        "log_level",
+        "logger_name",
+        "logger_level",
+    }
+
+
+def test_build_runtime_bootstrap_summary_direct_mapping_values() -> None:
+    bootstrap = build_runtime_bootstrap(
+        {
+            "environment": "production",
+            "api_host": "10.10.10.10",
+            "api_port": 8443,
+            "debug": False,
+            "log_level": "error",
+        }
+    )
+
+    summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert summary == {
+        "environment": "production",
+        "api_host": "10.10.10.10",
+        "api_port": 8443,
+        "debug": False,
+        "log_level": "ERROR",
+        "logger_name": "fleetgraph.runtime.production",
+        "logger_level": "ERROR",
+    }
+
+
+def test_build_runtime_bootstrap_summary_environment_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FLEETGRAPH_RUNTIME_ENVIRONMENT", "staging")
+    monkeypatch.setenv("FLEETGRAPH_API_HOST", "0.0.0.0")
+    monkeypatch.setenv("FLEETGRAPH_API_PORT", "8000")
+    monkeypatch.setenv("FLEETGRAPH_DEBUG", "false")
+    monkeypatch.setenv("FLEETGRAPH_LOG_LEVEL", "INFO")
+
+    bootstrap = build_runtime_bootstrap_from_environment()
+    summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert summary["environment"] == "staging"
+    assert summary["api_host"] == "0.0.0.0"
+    assert summary["api_port"] == 8000
+    assert summary["debug"] is False
+    assert summary["log_level"] == "INFO"
+    assert summary["logger_name"] == "fleetgraph.runtime.staging"
+    assert summary["logger_level"] == "INFO"
+
+
+def test_build_runtime_bootstrap_summary_env_file_values(tmp_path: Path) -> None:
+    env_file = tmp_path / "runtime.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "FLEETGRAPH_RUNTIME_ENVIRONMENT=development",
+                "FLEETGRAPH_API_HOST=127.0.0.1",
+                "FLEETGRAPH_API_PORT=8000",
+                "FLEETGRAPH_DEBUG=true",
+                "FLEETGRAPH_LOG_LEVEL=DEBUG",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    bootstrap = build_runtime_bootstrap_from_env_file(env_file)
+    summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert summary == {
+        "environment": "development",
+        "api_host": "127.0.0.1",
+        "api_port": 8000,
+        "debug": True,
+        "log_level": "DEBUG",
+        "logger_name": "fleetgraph.runtime.development",
+        "logger_level": "DEBUG",
+    }
+
+
+def test_build_runtime_bootstrap_summary_logger_level_text_is_canonical_uppercase() -> None:
+    bootstrap = build_runtime_bootstrap(
+        {
+            "environment": "production",
+            "api_host": "0.0.0.0",
+            "api_port": 8000,
+            "debug": False,
+            "log_level": "warning",
+        }
+    )
+
+    summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert summary["logger_level"] == "WARNING"
+
+
+def test_repeated_summary_generation_is_deterministic() -> None:
+    bootstrap = build_runtime_bootstrap(
+        {
+            "environment": "staging",
+            "api_host": "0.0.0.0",
+            "api_port": 8000,
+            "debug": False,
+            "log_level": "INFO",
+        }
+    )
+
+    first_summary = build_runtime_bootstrap_summary(bootstrap)
+    second_summary = build_runtime_bootstrap_summary(bootstrap)
+
+    assert first_summary == second_summary
+
+
+def test_build_runtime_bootstrap_summary_does_not_mutate_bootstrap() -> None:
+    bootstrap = build_runtime_bootstrap(
+        {
+            "environment": "development",
+            "api_host": "127.0.0.1",
+            "api_port": 8000,
+            "debug": True,
+            "log_level": "DEBUG",
+        }
+    )
+    config_before = bootstrap.config
+    logger_name_before = bootstrap.logger.name
+    logger_level_before = bootstrap.logger.level
+
+    _ = build_runtime_bootstrap_summary(bootstrap)
+
+    assert bootstrap.config == config_before
+    assert bootstrap.logger.name == logger_name_before
+    assert bootstrap.logger.level == logger_level_before
+
+
+def test_build_runtime_bootstrap_summary_rejects_invalid_input() -> None:
+    with pytest.raises(ValueError, match="bootstrap must be a RuntimeBootstrap instance"):
+        build_runtime_bootstrap_summary("not-bootstrap")  # type: ignore[arg-type]
