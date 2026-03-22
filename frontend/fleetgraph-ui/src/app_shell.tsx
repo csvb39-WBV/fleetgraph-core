@@ -1,6 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
+
+import FleetGraphNavigation, {
+  type FleetGraphViewKey,
+} from "./components/navigation/FleetGraphNavigation";
+import ViewContainer from "./components/navigation/ViewContainer";
 
 export function AppShell(): JSX.Element {
+  const [activeView, setActiveView] = useState<FleetGraphViewKey>("priority-dashboard");
+
   return (
     <div
       aria-label="FleetGraph App Shell"
@@ -45,31 +52,7 @@ export function AppShell(): JSX.Element {
           padding: "20px 16px",
         }}
       >
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            color: "#52606d",
-            letterSpacing: "0.08em",
-            marginBottom: "12px",
-          }}
-        >
-          Left navigation region
-        </div>
-        <ul
-          style={{
-            margin: 0,
-            padding: 0,
-            listStyle: "none",
-            lineHeight: 2,
-          }}
-        >
-          <li>Priority Dashboard</li>
-          <li>Company Intelligence</li>
-          <li>Predictive Insights</li>
-          <li>RFP Panel</li>
-        </ul>
+        <FleetGraphNavigation activeView={activeView} onSelectView={setActiveView} />
       </nav>
 
       <main
@@ -95,7 +78,7 @@ export function AppShell(): JSX.Element {
         </div>
 
         <section
-          aria-label="Priority Dashboard"
+          aria-label="Active Workflow View"
           style={{
             background: "#ffffff",
             border: "1px solid #d9e2ec",
@@ -103,43 +86,7 @@ export function AppShell(): JSX.Element {
             borderRadius: "4px",
           }}
         >
-          Priority Dashboard
-        </section>
-
-        <section
-          aria-label="Company Intelligence"
-          style={{
-            background: "#ffffff",
-            border: "1px solid #d9e2ec",
-            padding: "16px",
-            borderRadius: "4px",
-          }}
-        >
-          Company Intelligence
-        </section>
-
-        <section
-          aria-label="Predictive Insights"
-          style={{
-            background: "#ffffff",
-            border: "1px solid #d9e2ec",
-            padding: "16px",
-            borderRadius: "4px",
-          }}
-        >
-          Predictive Insights
-        </section>
-
-        <section
-          aria-label="RFP Panel"
-          style={{
-            background: "#ffffff",
-            border: "1px solid #d9e2ec",
-            padding: "16px",
-            borderRadius: "4px",
-          }}
-        >
-          RFP Panel
+          <ViewContainer activeView={activeView} />
         </section>
       </main>
     </div>
