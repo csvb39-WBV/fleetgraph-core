@@ -27,6 +27,46 @@ class ExecutionRegistry:
     def __init__(self) -> None:
         self._records_by_id: Dict[str, ExecutionRecord] = {}
         self._ordered_execution_ids: List[str] = []
+        self._registered_run_ids: set[str] = set()
+
+    @staticmethod
+    def _validate_run_id(run_id: str) -> str:
+        if not isinstance(run_id, str):
+            raise TypeError("run_id must be a string")
+
+        normalized_run_id = run_id.strip()
+        if not normalized_run_id:
+            raise ValueError("run_id must be a non-empty string")
+
+        return normalized_run_id
+
+    @staticmethod
+    def _duplicate_execution_message(run_id: str) -> str:
+        return f"Duplicate execution detected. Run {run_id} has already been executed."
+
+    def register_run(self, run_id: str) -> None:
+        normalized_run_id = self._validate_run_id(run_id)
+        if normalized_run_id in self._registered_run_ids:
+            raise ValueError(self._duplicate_execution_message(normalized_run_id))
+
+        self._registered_run_ids.add(normalized_run_id)
+
+    def assert_not_executed(self, run_id: str) -> None:
+        normalized_run_id = self._validate_run_id(run_id)
+        if normalized_run_id in self._registered_run_ids:
+            raise ValueError(self._duplicate_execution_message(normalized_run_id))
+
+    def has_run(self, run_id: str) -> bool:
+        normalized_run_id = self._validate_run_id(run_id)
+        return normalized_run_id in self._registered_run_ids
+
+    def __contains__(self, run_id: object) -> bool:
+        if not isinstance(run_id, str):
+            return False
+        return run_id in self._registered_run_ids
+
+    def __len__(self) -> int:
+        return len(self._registered_run_ids)
 
     def register(self, record: ExecutionRecord) -> ExecutionRecord:
         if not isinstance(record, ExecutionRecord):
