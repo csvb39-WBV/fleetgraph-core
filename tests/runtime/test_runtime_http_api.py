@@ -29,6 +29,9 @@ from fleetgraph_core.runtime.runtime_health_api import (
 from fleetgraph_core.runtime.runtime_metrics_layer import (
     build_runtime_metrics_response,
 )
+from fleetgraph_core.runtime.runtime_readiness_layer import (
+    build_runtime_readiness_response,
+)
 import fleetgraph_core.runtime.runtime_http_api as runtime_http_api
 
 
@@ -71,6 +74,14 @@ def test_runtime_metrics_endpoint_available(monkeypatch: pytest.MonkeyPatch) -> 
     _set_runtime_environment(monkeypatch)
 
     response = client.get("/runtime/metrics")
+
+    assert response.status_code == 200
+
+
+def test_runtime_readiness_endpoint_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    response = client.get("/runtime/readiness")
 
     assert response.status_code == 200
 
@@ -119,6 +130,21 @@ def test_metrics_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPa
     assert response.json() == expected
 
 
+def test_readiness_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    response = client.get("/runtime/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "checks": {
+            "config_loaded": True,
+            "bootstrap_complete": True,
+        },
+    }
+
+
 def test_endpoints_are_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_runtime_environment(monkeypatch)
 
@@ -135,6 +161,15 @@ def test_endpoints_are_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
     assert external_first == external_second
     assert health_first == health_second
     assert metrics_first == metrics_second
+
+
+def test_readiness_endpoint_is_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    first = client.get("/runtime/readiness").json()
+    second = client.get("/runtime/readiness").json()
+
+    assert first == second
 
 
 def test_environment_driven_values_reflected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,13 +194,53 @@ def test_environment_driven_values_reflected(monkeypatch: pytest.MonkeyPatch) ->
     assert metrics_response.json()["health_alignment"]["health_endpoint_status"] == "healthy"
 
 
+def test_readiness_not_ready_path_via_monkeypatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    from fleetgraph_core.runtime import runtime_readiness_layer
+
+    monkeypatch.setattr(
+        runtime_readiness_layer,
+        "build_runtime_readiness_response",
+        lambda _state: {
+            "status": "not_ready",
+            "checks": {
+                "config_loaded": False,
+                "bootstrap_complete": True,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        runtime_http_api,
+        "build_runtime_readiness_response",
+        lambda _state: {
+            "status": "not_ready",
+            "checks": {
+                "config_loaded": False,
+                "bootstrap_complete": True,
+            },
+        },
+    )
+
+    response = client.get("/runtime/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {
+            "config_loaded": False,
+            "bootstrap_complete": True,
+        },
+    }
+
+
 def test_error_propagation_returns_http_500_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise_error() -> None:
         raise ValueError("forced failure")
 
     monkeypatch.setattr(runtime_http_api, "build_runtime_bootstrap_from_environment", _raise_error)
 
-    for path in ("/runtime/summary", "/runtime/external", "/runtime/health", "/runtime/metrics"):
+    for path in ("/runtime/summary", "/runtime/external", "/runtime/health", "/runtime/metrics", "/runtime/readiness"):
         response = client.get(path)
         assert response.status_code == 500
         assert response.json() == {
@@ -199,6 +274,7 @@ def test_bootstrap_not_mutated(monkeypatch: pytest.MonkeyPatch) -> None:
     client.get("/runtime/external")
     client.get("/runtime/health")
     client.get("/runtime/metrics")
+    client.get("/runtime/readiness")
 
     assert bootstrap.config == config_before
     assert bootstrap.logger.name == logger_name_before
@@ -213,6 +289,7 @@ def test_environment_not_mutated(monkeypatch: pytest.MonkeyPatch) -> None:
     client.get("/runtime/external")
     client.get("/runtime/health")
     client.get("/runtime/metrics")
+    client.get("/runtime/readiness")
 
     assert dict(os.environ) == env_before
 
@@ -286,3 +363,7 @@ def test_contract_integrity_exact_keys(monkeypatch: pytest.MonkeyPatch) -> None:
         "health_endpoint_status",
         "health_is_healthy",
     }
+
+    readiness = client.get("/runtime/readiness").json()
+    assert set(readiness.keys()) == {"status", "checks"}
+    assert set(readiness["checks"].keys()) == {"config_loaded", "bootstrap_complete"}
