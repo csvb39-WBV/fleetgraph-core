@@ -6,7 +6,9 @@ from copy import deepcopy
 
 import pytest
 
+from fleetgraph_core.runtime.runtime_bootstrap import build_runtime_bootstrap
 from fleetgraph_core.runtime.runtime_metrics_layer import build_runtime_metrics_report
+import fleetgraph_core.runtime.runtime_metrics_layer as runtime_metrics_layer
 
 
 # ---------------------------------------------------------------------------
@@ -384,3 +386,129 @@ class TestSafety:
         build_runtime_metrics_report(boundary)
 
         assert boundary == boundary_before
+
+
+# ---------------------------------------------------------------------------
+# Runtime metrics response
+# ---------------------------------------------------------------------------
+
+
+def _build_bootstrap() -> object:
+    return build_runtime_bootstrap(
+        {
+            "environment": "development",
+            "api_host": "127.0.0.1",
+            "api_port": 8000,
+            "debug": True,
+            "log_level": "DEBUG",
+        }
+    )
+
+
+class TestRuntimeMetricsResponse:
+    def test_response_has_exact_structure_and_field_order(self) -> None:
+        bootstrap = _build_bootstrap()
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert tuple(response.keys()) == (
+            "response_type",
+            "response_schema_version",
+            "runtime_metrics",
+            "request_metrics",
+            "error_metrics",
+            "health_alignment",
+        )
+        assert tuple(response["runtime_metrics"].keys()) == (
+            "startup_success",
+            "runtime_status",
+        )
+        assert tuple(response["request_metrics"].keys()) == (
+            "request_count_total",
+            "request_success_count",
+            "request_failure_count",
+        )
+        assert tuple(response["error_metrics"].keys()) == (
+            "exception_count",
+            "failure_event_count",
+        )
+        assert tuple(response["health_alignment"].keys()) == (
+            "health_endpoint_status",
+            "health_is_healthy",
+        )
+
+    def test_response_matches_locked_values_for_healthy_runtime(self) -> None:
+        bootstrap = _build_bootstrap()
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert response == {
+            "response_type": "runtime_metrics_response",
+            "response_schema_version": "1.0",
+            "runtime_metrics": {
+                "startup_success": True,
+                "runtime_status": "running",
+            },
+            "request_metrics": {
+                "request_count_total": 0,
+                "request_success_count": 0,
+                "request_failure_count": 0,
+            },
+            "error_metrics": {
+                "exception_count": 0,
+                "failure_event_count": 0,
+            },
+            "health_alignment": {
+                "health_endpoint_status": "healthy",
+                "health_is_healthy": True,
+            },
+        }
+
+    def test_failure_event_count_reflects_degraded_health(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        bootstrap = _build_bootstrap()
+
+        monkeypatch.setattr(
+            runtime_metrics_layer,
+            "build_runtime_health_response",
+            lambda _bootstrap: {
+                "response_type": "runtime_health_response",
+                "response_schema_version": "1.0",
+                "status": "degraded",
+                "checks": {"config_valid": False, "logger_ready": True},
+                "runtime": {
+                    "environment": "development",
+                    "api_host": "127.0.0.1",
+                    "api_port": 8000,
+                    "debug": True,
+                    "log_level": "DEBUG",
+                    "logger_name": "fleetgraph.runtime.development",
+                    "logger_level": "DEBUG",
+                },
+            },
+        )
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert response["error_metrics"]["failure_event_count"] == 1
+        assert response["health_alignment"] == {
+            "health_endpoint_status": "degraded",
+            "health_is_healthy": False,
+        }
+
+    def test_invalid_health_contract_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        bootstrap = _build_bootstrap()
+
+        monkeypatch.setattr(
+            runtime_metrics_layer,
+            "build_runtime_health_response",
+            lambda _bootstrap: {
+                "status": "healthy",
+                "checks": {"config_valid": True, "logger_ready": True},
+                "runtime": {},
+                "response_type": "runtime_health_response",
+                "response_schema_version": "1.0",
+            },
+        )
+
+        with pytest.raises(ValueError, match="metrics API contract"):
+            runtime_metrics_layer.build_runtime_metrics_response(bootstrap)

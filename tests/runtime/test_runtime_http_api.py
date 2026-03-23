@@ -26,6 +26,9 @@ from fleetgraph_core.runtime.runtime_external_api import (
 from fleetgraph_core.runtime.runtime_health_api import (
     build_runtime_health_response,
 )
+from fleetgraph_core.runtime.runtime_metrics_layer import (
+    build_runtime_metrics_response,
+)
 import fleetgraph_core.runtime.runtime_http_api as runtime_http_api
 
 
@@ -64,6 +67,14 @@ def test_runtime_health_endpoint_available(monkeypatch: pytest.MonkeyPatch) -> N
     assert response.status_code == 200
 
 
+def test_runtime_metrics_endpoint_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    response = client.get("/runtime/metrics")
+
+    assert response.status_code == 200
+
+
 def test_summary_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_runtime_environment(monkeypatch)
 
@@ -97,6 +108,17 @@ def test_health_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPat
     assert response.json() == expected
 
 
+def test_metrics_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_runtime_environment(monkeypatch)
+
+    expected = build_runtime_metrics_response(build_runtime_bootstrap_from_environment())
+
+    response = client.get("/runtime/metrics")
+
+    assert response.status_code == 200
+    assert response.json() == expected
+
+
 def test_endpoints_are_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_runtime_environment(monkeypatch)
 
@@ -106,10 +128,13 @@ def test_endpoints_are_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
     external_second = client.get("/runtime/external").json()
     health_first = client.get("/runtime/health").json()
     health_second = client.get("/runtime/health").json()
+    metrics_first = client.get("/runtime/metrics").json()
+    metrics_second = client.get("/runtime/metrics").json()
 
     assert summary_first == summary_second
     assert external_first == external_second
     assert health_first == health_second
+    assert metrics_first == metrics_second
 
 
 def test_environment_driven_values_reflected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,6 +147,7 @@ def test_environment_driven_values_reflected(monkeypatch: pytest.MonkeyPatch) ->
     summary_response = client.get("/runtime/summary")
     external_response = client.get("/runtime/external")
     health_response = client.get("/runtime/health")
+    metrics_response = client.get("/runtime/metrics")
 
     assert summary_response.json()["environment"] == "production"
     assert summary_response.json()["api_host"] == "10.30.40.50"
@@ -130,6 +156,7 @@ def test_environment_driven_values_reflected(monkeypatch: pytest.MonkeyPatch) ->
     assert summary_response.json()["log_level"] == "ERROR"
     assert external_response.json()["runtime"]["environment"] == "production"
     assert health_response.json()["runtime"]["environment"] == "production"
+    assert metrics_response.json()["health_alignment"]["health_endpoint_status"] == "healthy"
 
 
 def test_error_propagation_returns_http_500_contract(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,7 +165,7 @@ def test_error_propagation_returns_http_500_contract(monkeypatch: pytest.MonkeyP
 
     monkeypatch.setattr(runtime_http_api, "build_runtime_bootstrap_from_environment", _raise_error)
 
-    for path in ("/runtime/summary", "/runtime/external", "/runtime/health"):
+    for path in ("/runtime/summary", "/runtime/external", "/runtime/health", "/runtime/metrics"):
         response = client.get(path)
         assert response.status_code == 500
         assert response.json() == {
@@ -171,6 +198,7 @@ def test_bootstrap_not_mutated(monkeypatch: pytest.MonkeyPatch) -> None:
     client.get("/runtime/summary")
     client.get("/runtime/external")
     client.get("/runtime/health")
+    client.get("/runtime/metrics")
 
     assert bootstrap.config == config_before
     assert bootstrap.logger.name == logger_name_before
@@ -184,6 +212,7 @@ def test_environment_not_mutated(monkeypatch: pytest.MonkeyPatch) -> None:
     client.get("/runtime/summary")
     client.get("/runtime/external")
     client.get("/runtime/health")
+    client.get("/runtime/metrics")
 
     assert dict(os.environ) == env_before
 
@@ -194,6 +223,7 @@ def test_contract_integrity_exact_keys(monkeypatch: pytest.MonkeyPatch) -> None:
     summary = client.get("/runtime/summary").json()
     external = client.get("/runtime/external").json()
     health = client.get("/runtime/health").json()
+    metrics = client.get("/runtime/metrics").json()
 
     assert set(summary.keys()) == {
         "environment",
@@ -230,4 +260,29 @@ def test_contract_integrity_exact_keys(monkeypatch: pytest.MonkeyPatch) -> None:
         "log_level",
         "logger_name",
         "logger_level",
+    }
+    assert set(metrics.keys()) == {
+        "response_type",
+        "response_schema_version",
+        "runtime_metrics",
+        "request_metrics",
+        "error_metrics",
+        "health_alignment",
+    }
+    assert set(metrics["runtime_metrics"].keys()) == {
+        "startup_success",
+        "runtime_status",
+    }
+    assert set(metrics["request_metrics"].keys()) == {
+        "request_count_total",
+        "request_success_count",
+        "request_failure_count",
+    }
+    assert set(metrics["error_metrics"].keys()) == {
+        "exception_count",
+        "failure_event_count",
+    }
+    assert set(metrics["health_alignment"].keys()) == {
+        "health_endpoint_status",
+        "health_is_healthy",
     }

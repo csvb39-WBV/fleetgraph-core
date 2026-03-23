@@ -13,6 +13,9 @@ from fleetgraph_core.runtime.runtime_external_api import (
 from fleetgraph_core.runtime.runtime_health_api import (
     build_runtime_health_response,
 )
+from fleetgraph_core.runtime.runtime_metrics_layer import (
+    build_runtime_metrics_response,
+)
 
 
 app = FastAPI()
@@ -51,5 +54,14 @@ def get_runtime_health() -> dict:
     try:
         bootstrap = build_runtime_bootstrap_from_environment()
         return build_runtime_health_response(bootstrap)
+    except Exception as error:  # pragma: no cover
+        return _runtime_http_error_response(error)
+
+
+@app.get("/runtime/metrics")
+def get_runtime_metrics() -> dict:
+    try:
+        bootstrap = build_runtime_bootstrap_from_environment()
+        return build_runtime_metrics_response(bootstrap)
     except Exception as error:  # pragma: no cover
         return _runtime_http_error_response(error)

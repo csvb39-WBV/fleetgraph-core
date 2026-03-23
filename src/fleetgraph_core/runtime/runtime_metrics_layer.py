@@ -7,6 +7,13 @@ runtime metrics report.
 Pure in-memory Python with strict contract validation.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
+from fleetgraph_core.runtime.runtime_bootstrap import RuntimeBootstrap
+from fleetgraph_core.runtime.runtime_health_api import build_runtime_health_response
+
 _BOUNDARY_REQUIRED_FIELDS: frozenset[str] = frozenset({
     "boundary_state",
     "failure_category",
@@ -52,6 +59,44 @@ _OUTPUT_FIELDS: frozenset[str] = frozenset({
     "failure_category",
     "failure_message",
 })
+
+_EXPECTED_HEALTH_RESPONSE_KEYS: tuple[str, ...] = (
+    "response_type",
+    "response_schema_version",
+    "status",
+    "checks",
+    "runtime",
+)
+
+_EXPECTED_RUNTIME_METRICS_KEYS: tuple[str, ...] = (
+    "startup_success",
+    "runtime_status",
+)
+
+_EXPECTED_REQUEST_METRICS_KEYS: tuple[str, ...] = (
+    "request_count_total",
+    "request_success_count",
+    "request_failure_count",
+)
+
+_EXPECTED_ERROR_METRICS_KEYS: tuple[str, ...] = (
+    "exception_count",
+    "failure_event_count",
+)
+
+_EXPECTED_HEALTH_ALIGNMENT_KEYS: tuple[str, ...] = (
+    "health_endpoint_status",
+    "health_is_healthy",
+)
+
+_EXPECTED_METRICS_RESPONSE_KEYS: tuple[str, ...] = (
+    "response_type",
+    "response_schema_version",
+    "runtime_metrics",
+    "request_metrics",
+    "error_metrics",
+    "health_alignment",
+)
 
 
 def _require_closed_schema(obj: dict, required_fields: frozenset[str], label: str) -> None:
@@ -214,3 +259,48 @@ def build_runtime_metrics_report(
         raise RuntimeError("internal error: metrics report schema mismatch")
 
     return report
+
+
+def build_runtime_metrics_response(bootstrap: RuntimeBootstrap) -> dict[str, Any]:
+    """Build the deterministic runtime metrics API response."""
+    health_response = build_runtime_health_response(bootstrap)
+    if tuple(health_response.keys()) != _EXPECTED_HEALTH_RESPONSE_KEYS:
+        raise ValueError("Runtime health response does not match metrics API contract")
+
+    health_status = health_response["status"]
+    is_healthy = health_status == "healthy"
+
+    response = {
+        "response_type": "runtime_metrics_response",
+        "response_schema_version": "1.0",
+        "runtime_metrics": {
+            "startup_success": True,
+            "runtime_status": "running",
+        },
+        "request_metrics": {
+            "request_count_total": 0,
+            "request_success_count": 0,
+            "request_failure_count": 0,
+        },
+        "error_metrics": {
+            "exception_count": 0,
+            "failure_event_count": 0 if is_healthy else 1,
+        },
+        "health_alignment": {
+            "health_endpoint_status": health_status,
+            "health_is_healthy": is_healthy,
+        },
+    }
+
+    if tuple(response.keys()) != _EXPECTED_METRICS_RESPONSE_KEYS:
+        raise RuntimeError("internal error: metrics response schema mismatch")
+    if tuple(response["runtime_metrics"].keys()) != _EXPECTED_RUNTIME_METRICS_KEYS:
+        raise RuntimeError("internal error: runtime_metrics schema mismatch")
+    if tuple(response["request_metrics"].keys()) != _EXPECTED_REQUEST_METRICS_KEYS:
+        raise RuntimeError("internal error: request_metrics schema mismatch")
+    if tuple(response["error_metrics"].keys()) != _EXPECTED_ERROR_METRICS_KEYS:
+        raise RuntimeError("internal error: error_metrics schema mismatch")
+    if tuple(response["health_alignment"].keys()) != _EXPECTED_HEALTH_ALIGNMENT_KEYS:
+        raise RuntimeError("internal error: health_alignment schema mismatch")
+
+    return response
