@@ -1,6 +1,6 @@
 # Purpose
 
-This document defines the deterministic runtime container contract for FleetGraph Core using a single canonical startup surface. The runtime boundary remains pass-through only: configuration is provided to the process, and container/entrypoint wiring does not transform requests, responses, or runtime payloads.
+This document defines the deterministic runtime container contract for FleetGraph Core using a single canonical startup surface. The runtime image is the canonical deployable artifact, and the runtime boundary remains pass-through only: configuration is provided to the process, and container/entrypoint wiring does not transform requests, responses, or runtime payloads.
 
 # Build Command
 
@@ -53,3 +53,5 @@ The canonical startup surface for Docker, local execution, and future deployment
 python -m fleetgraph_core.runtime.runtime_server_entrypoint
 
 The entrypoint internally launches the existing runtime app via Uvicorn and preserves current runtime behavior without route or contract changes.
+
+This startup surface aligns with the cloud deployment contract and remains the single authoritative runtime launch path.
