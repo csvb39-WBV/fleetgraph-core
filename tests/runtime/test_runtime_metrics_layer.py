@@ -427,6 +427,7 @@ class TestRuntimeMetricsResponse:
             "request_count_total",
             "request_success_count",
             "request_failure_count",
+            "execution_time_ms",
         )
         assert tuple(response["error_metrics"].keys()) == (
             "exception_count",
@@ -453,6 +454,7 @@ class TestRuntimeMetricsResponse:
                 "request_count_total": 0,
                 "request_success_count": 0,
                 "request_failure_count": 0,
+                "execution_time_ms": 0,
             },
             "error_metrics": {
                 "exception_count": 0,
@@ -512,3 +514,59 @@ class TestRuntimeMetricsResponse:
 
         with pytest.raises(ValueError, match="metrics API contract"):
             runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+    def test_execution_time_ms_present(self) -> None:
+        bootstrap = _build_bootstrap()
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert "execution_time_ms" in response["request_metrics"]
+
+    def test_execution_time_ms_is_int(self) -> None:
+        bootstrap = _build_bootstrap()
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert isinstance(response["request_metrics"]["execution_time_ms"], int)
+
+    def test_execution_time_ms_is_deterministic_with_mocked_clock(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        bootstrap = _build_bootstrap()
+
+        ticks = iter([2_000_000_000, 2_012_000_000])
+        monkeypatch.setattr(
+            runtime_metrics_layer.time,
+            "perf_counter_ns",
+            lambda: next(ticks),
+        )
+
+        response = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert response["request_metrics"]["execution_time_ms"] == 12
+
+    def test_execution_time_ms_repeated_calls_deterministic_with_mocked_clock(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        bootstrap = _build_bootstrap()
+
+        clock_values = [
+            5_000_000_000,
+            5_004_000_000,
+            6_000_000_000,
+            6_004_000_000,
+        ]
+        ticks = iter(clock_values)
+        monkeypatch.setattr(
+            runtime_metrics_layer.time,
+            "perf_counter_ns",
+            lambda: next(ticks),
+        )
+
+        first = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+        second = runtime_metrics_layer.build_runtime_metrics_response(bootstrap)
+
+        assert first["request_metrics"]["execution_time_ms"] == 4
+        assert second["request_metrics"]["execution_time_ms"] == 4

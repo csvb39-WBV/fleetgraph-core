@@ -9,6 +9,7 @@ Pure in-memory Python with strict contract validation.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from fleetgraph_core.runtime.runtime_bootstrap import RuntimeBootstrap
@@ -77,6 +78,7 @@ _EXPECTED_REQUEST_METRICS_KEYS: tuple[str, ...] = (
     "request_count_total",
     "request_success_count",
     "request_failure_count",
+    "execution_time_ms",
 )
 
 _EXPECTED_ERROR_METRICS_KEYS: tuple[str, ...] = (
@@ -263,6 +265,8 @@ def build_runtime_metrics_report(
 
 def build_runtime_metrics_response(bootstrap: RuntimeBootstrap) -> dict[str, Any]:
     """Build the deterministic runtime metrics API response."""
+    started_at_ns = time.perf_counter_ns()
+
     health_response = build_runtime_health_response(bootstrap)
     if tuple(health_response.keys()) != _EXPECTED_HEALTH_RESPONSE_KEYS:
         raise ValueError("Runtime health response does not match metrics API contract")
@@ -281,6 +285,7 @@ def build_runtime_metrics_response(bootstrap: RuntimeBootstrap) -> dict[str, Any
             "request_count_total": 0,
             "request_success_count": 0,
             "request_failure_count": 0,
+            "execution_time_ms": 0,
         },
         "error_metrics": {
             "exception_count": 0,
@@ -302,5 +307,11 @@ def build_runtime_metrics_response(bootstrap: RuntimeBootstrap) -> dict[str, Any
         raise RuntimeError("internal error: error_metrics schema mismatch")
     if tuple(response["health_alignment"].keys()) != _EXPECTED_HEALTH_ALIGNMENT_KEYS:
         raise RuntimeError("internal error: health_alignment schema mismatch")
+
+    ended_at_ns = time.perf_counter_ns()
+    response["request_metrics"]["execution_time_ms"] = max(
+        0,
+        (ended_at_ns - started_at_ns) // 1_000_000,
+    )
 
     return response
