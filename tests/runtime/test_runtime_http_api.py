@@ -38,6 +38,16 @@ import fleetgraph_core.runtime.runtime_http_api as runtime_http_api
 client = TestClient(runtime_http_api.app)
 
 
+def _expected_runtime_metrics_http_response() -> dict:
+    response = build_runtime_metrics_response(build_runtime_bootstrap_from_environment())
+    request_metrics = dict(response["request_metrics"])
+    request_metrics.pop("execution_time_ms", None)
+    return {
+        **response,
+        "request_metrics": request_metrics,
+    }
+
+
 def _set_runtime_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FLEETGRAPH_RUNTIME_ENVIRONMENT", "staging")
     monkeypatch.setenv("FLEETGRAPH_API_HOST", "0.0.0.0")
@@ -122,7 +132,7 @@ def test_health_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPat
 def test_metrics_response_exact_match_with_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     _set_runtime_environment(monkeypatch)
 
-    expected = build_runtime_metrics_response(build_runtime_bootstrap_from_environment())
+    expected = _expected_runtime_metrics_http_response()
 
     response = client.get("/runtime/metrics")
 

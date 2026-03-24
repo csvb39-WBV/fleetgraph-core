@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.py[cod]
 *.pyc
 *.pyo
 *.pyd
@@ -12,6 +13,7 @@ dist/
 .venv/
 venv/
 env/
+ENV/
 
 # Environment
 .env
@@ -22,6 +24,7 @@ env/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
 htmlcov/
 
 # IDE
@@ -30,6 +33,7 @@ htmlcov/
 
 # OS
 .DS_Store
+Thumbs.db
 
 # Node (frontend if present)
 node_modules/

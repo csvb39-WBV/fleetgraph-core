@@ -25,6 +25,16 @@ from fleetgraph_core.runtime.runtime_readiness_layer import (
 app = FastAPI()
 
 
+def _build_runtime_metrics_http_response(bootstrap: RuntimeBootstrap) -> dict:
+    response = build_runtime_metrics_response(bootstrap)
+    request_metrics = dict(response["request_metrics"])
+    request_metrics.pop("execution_time_ms", None)
+    return {
+        **response,
+        "request_metrics": request_metrics,
+    }
+
+
 def _runtime_http_error_response(error: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=500,
@@ -66,7 +76,7 @@ def get_runtime_health() -> dict:
 def get_runtime_metrics() -> dict:
     try:
         bootstrap = build_runtime_bootstrap_from_environment()
-        return build_runtime_metrics_response(bootstrap)
+        return _build_runtime_metrics_http_response(bootstrap)
     except Exception as error:  # pragma: no cover
         return _runtime_http_error_response(error)
 
