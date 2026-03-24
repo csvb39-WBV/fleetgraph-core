@@ -5,6 +5,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GITIGNORE_PATH = REPO_ROOT / ".gitignore"
+GITATTRIBUTES_PATH = REPO_ROOT / ".gitattributes"
 
 REQUIRED_GITIGNORE_LINES = [
     "__pycache__/",
@@ -25,6 +26,17 @@ REQUIRED_GITIGNORE_LINES = [
     ".idea/",
     ".DS_Store",
     "Thumbs.db",
+]
+
+REQUIRED_GITATTRIBUTES_LINES = [
+    "__pycache__/ export-ignore",
+    "*.py[cod] export-ignore",
+    ".pytest_cache/ export-ignore",
+    ".mypy_cache/ export-ignore",
+    ".ruff_cache/ export-ignore",
+    ".coverage export-ignore",
+    ".coverage.* export-ignore",
+    "htmlcov/ export-ignore",
 ]
 
 REQUIRED_IGNORED_PATH_EXAMPLES = [
@@ -59,6 +71,10 @@ def _read_gitignore_lines() -> list[str]:
     return GITIGNORE_PATH.read_text(encoding="utf-8").splitlines()
 
 
+def _read_gitattributes_lines() -> list[str]:
+    return GITATTRIBUTES_PATH.read_text(encoding="utf-8").splitlines()
+
+
 def _matches_gitignore_pattern(relative_path: str, pattern: str) -> bool:
     path = relative_path.strip("/")
     rule = pattern.strip()
@@ -85,6 +101,10 @@ def test_gitignore_exists() -> None:
     assert GITIGNORE_PATH.is_file(), "Root .gitignore file is missing"
 
 
+def test_gitattributes_exists() -> None:
+    assert GITATTRIBUTES_PATH.is_file(), "Root .gitattributes file is missing"
+
+
 def test_gitignore_contains_required_rules() -> None:
     gitignore_lines = _read_gitignore_lines()
     missing_rules = [
@@ -92,6 +112,16 @@ def test_gitignore_contains_required_rules() -> None:
     ]
     assert not missing_rules, (
         "Missing required .gitignore rules: " + ", ".join(missing_rules)
+    )
+
+
+def test_gitattributes_contains_required_export_ignore_rules() -> None:
+    gitattributes_lines = _read_gitattributes_lines()
+    missing_rules = [
+        rule for rule in REQUIRED_GITATTRIBUTES_LINES if rule not in gitattributes_lines
+    ]
+    assert not missing_rules, (
+        "Missing required .gitattributes rules: " + ", ".join(missing_rules)
     )
 
 

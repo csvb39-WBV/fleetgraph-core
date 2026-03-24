@@ -1,0 +1,8 @@
+__pycache__/ export-ignore
+*.py[cod] export-ignore
+.pytest_cache/ export-ignore
+.mypy_cache/ export-ignore
+.ruff_cache/ export-ignore
+.coverage export-ignore
+.coverage.* export-ignore
+htmlcov/ export-ignore
