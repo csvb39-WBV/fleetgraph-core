@@ -1,161 +1,145 @@
-"""Authoritative deterministic signal source registry for intelligence inputs."""
+"""Deterministic vertical-aware signal source registry injection layer."""
 
 from __future__ import annotations
 
-from copy import deepcopy
-from typing import Final
+from typing import Any, Callable, Mapping, TypedDict
+
+from fleetgraph_core.runtime import vertical_router
+from fleetgraph_core.intelligence.fleet_signal_source_registry import (
+    get_fleet_signal_source,
+    get_fleet_signal_source_names,
+    get_fleet_signal_source_registry,
+    has_fleet_signal_source,
+)
+from fleetgraph_core.intelligence.construction_signal_source_registry import (
+    get_construction_signal_source,
+    get_construction_signal_source_names,
+    get_construction_signal_source_registry,
+    has_construction_signal_source,
+)
 
 
-SignalSourceRecord = dict[str, object]
+class _RegistryAdapter(TypedDict):
+    get_registry: Callable[[], dict[str, dict[str, str]]]
+    get_source: Callable[[Any], dict[str, str]]
+    has_source: Callable[[Any], bool]
+    get_source_names: Callable[[], tuple[str, ...]]
 
-_SIGNAL_SOURCE_REGISTRY: Final[dict[str, SignalSourceRecord]] = {
-    "sec_filings": {
-        "signal_tier": 0,
-        "signal_category": "COMPLIANCE",
-        "source_class": "filing",
+
+_ROUTE_DOMAIN = "signal_source_registry"
+_FLEET_ROUTE_TARGET = "fleet_signal_source_registry"
+_CONSTRUCTION_ROUTE_TARGET = "construction_signal_source_registry"
+
+_REGISTRY_ADAPTERS: dict[str, _RegistryAdapter] = {
+    _FLEET_ROUTE_TARGET: {
+        "get_registry": get_fleet_signal_source_registry,
+        "get_source": get_fleet_signal_source,
+        "has_source": has_fleet_signal_source,
+        "get_source_names": get_fleet_signal_source_names,
     },
-    "state_business_filings": {
-        "signal_tier": 0,
-        "signal_category": "COMPLIANCE",
-        "source_class": "filing",
-    },
-    "federal_contract_awards": {
-        "signal_tier": 1,
-        "signal_category": "PROCUREMENT",
-        "source_class": "award",
-    },
-    "county_permit_bulletins": {
-        "signal_tier": 1,
-        "signal_category": "EXPANSION",
-        "source_class": "permit",
-    },
-    "press_releases": {
-        "signal_tier": 1,
-        "signal_category": "EXPANSION",
-        "source_class": "web",
-    },
-    "company_careers_pages": {
-        "signal_tier": 2,
-        "signal_category": "EXPANSION",
-        "source_class": "web",
-    },
-    "job_boards": {
-        "signal_tier": 2,
-        "signal_category": "OPERATIONS",
-        "source_class": "web",
-    },
-    "environmental_disclosures": {
-        "signal_tier": 2,
-        "signal_category": "ESG",
-        "source_class": "disclosure",
-    },
-    "safety_incident_reports": {
-        "signal_tier": 2,
-        "signal_category": "RISK",
-        "source_class": "incident",
-    },
-    "news_rss_feeds": {
-        "signal_tier": 3,
-        "signal_category": "OPERATIONS",
-        "source_class": "media",
-    },
-    "web_traffic_signals": {
-        "signal_tier": 3,
-        "signal_category": "OPERATIONS",
-        "source_class": "telemetry",
-    },
-    "satellite_imagery_feeds": {
-        "signal_tier": 3,
-        "signal_category": "EXPANSION",
-        "source_class": "imagery",
+    _CONSTRUCTION_ROUTE_TARGET: {
+        "get_registry": get_construction_signal_source_registry,
+        "get_source": get_construction_signal_source,
+        "has_source": has_construction_signal_source,
+        "get_source_names": get_construction_signal_source_names,
     },
 }
 
 
-def _normalize_required_string(value: object, field_name: str) -> str:
-    if not isinstance(value, str):
-        raise ValueError(f"{field_name} must be a non-empty string")
-
-    normalized = value.strip().lower()
-    if not normalized:
-        raise ValueError(f"{field_name} must be a non-empty string")
-
-    return normalized
-
-
-def _validate_registry_shape() -> None:
-    for source_name, record in _SIGNAL_SOURCE_REGISTRY.items():
-        if not isinstance(source_name, str) or source_name.strip() == "":
-            raise ValueError("registry source_name must be a non-empty string")
-
-        if not isinstance(record, dict):
-            raise ValueError(f"registry record for {source_name} must be a dictionary")
-
-        required_fields = {"signal_tier", "signal_category", "source_class"}
-        missing_fields = sorted(required_fields - set(record.keys()))
-        if missing_fields:
-            raise ValueError(
-                f"registry record for {source_name} is missing fields: "
-                + ", ".join(missing_fields)
-            )
-
-        signal_tier = record["signal_tier"]
-        if not isinstance(signal_tier, int) or signal_tier not in (0, 1, 2, 3):
-            raise ValueError(f"registry record for {source_name} has invalid signal_tier")
-
-        for field_name in ("signal_category", "source_class"):
-            field_value = record[field_name]
-            if not isinstance(field_value, str) or field_value.strip() == "":
-                raise ValueError(
-                    f"registry record for {source_name} has invalid {field_name}"
-                )
+def _resolve_registry_adapter(
+    runtime_config: Mapping[str, Any] | None,
+) -> _RegistryAdapter:
+    route_target = vertical_router.resolve_routes(runtime_config)[_ROUTE_DOMAIN]
+    adapter = _REGISTRY_ADAPTERS.get(route_target)
+    if adapter is None:
+        raise ValueError(
+            "unsupported signal source registry route target: "
+            f"{route_target}"
+        )
+    return adapter
 
 
-_validate_registry_shape()
+def get_signal_source_registry(
+    runtime_config: Mapping[str, Any] | None = None,
+) -> dict[str, dict[str, str]]:
+    """Return the active vertical signal source registry as a copy-safe dict."""
+    adapter = _resolve_registry_adapter(runtime_config)
+    return adapter["get_registry"]()
 
 
-def list_signal_sources() -> tuple[str, ...]:
-    """Return deterministic list of known source names."""
-    return tuple(sorted(_SIGNAL_SOURCE_REGISTRY.keys()))
+def get_signal_source(
+    source_name: str,
+    runtime_config: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
+    """Return a single source record from the active vertical registry."""
+    adapter = _resolve_registry_adapter(runtime_config)
+    return adapter["get_source"](source_name)
 
 
-def get_signal_source_registry() -> dict[str, SignalSourceRecord]:
-    """Return a defensive copy of the source registry."""
-    return deepcopy(_SIGNAL_SOURCE_REGISTRY)
+def has_signal_source(
+    source_name: str,
+    runtime_config: Mapping[str, Any] | None = None,
+) -> bool:
+    """Check source presence in the active vertical registry."""
+    adapter = _resolve_registry_adapter(runtime_config)
+    return adapter["has_source"](source_name)
+
+
+def get_signal_source_names(
+    runtime_config: Mapping[str, Any] | None = None,
+) -> tuple[str, ...]:
+    """Return deterministic source names for the active vertical registry."""
+    adapter = _resolve_registry_adapter(runtime_config)
+    return adapter["get_source_names"]()
+
+
+def list_signal_sources(
+    runtime_config: Mapping[str, Any] | None = None,
+) -> tuple[str, ...]:
+    """Backward-compatible alias for active source-name listing."""
+    return get_signal_source_names(runtime_config)
 
 
 def resolve_signal_source(
     *,
     source_name: object,
     source_type: object,
-) -> SignalSourceRecord:
-    """Resolve and validate source metadata for deterministic downstream use."""
-    normalized_source_name = _normalize_required_string(source_name, "source_name")
-    normalized_source_type = _normalize_required_string(source_type, "source_type")
+    runtime_config: Mapping[str, Any] | None = None,
+) -> dict[str, object]:
+    """Backward-compatible source resolver using active registry records.
 
-    registry_record = _SIGNAL_SOURCE_REGISTRY.get(normalized_source_name)
-    if registry_record is None:
-        raise ValueError(f"unknown source_name: {normalized_source_name}")
+    This keeps the historical shape (`source_class` and `valid`) while
+    deferring source-name validation to the selected registry authority.
+    """
+    if not isinstance(source_type, str):
+        raise ValueError("source_type must be a non-empty string")
 
-    expected_source_class = str(registry_record["source_class"]).strip().lower()
+    normalized_source_type = source_type.strip().lower()
+    if not normalized_source_type:
+        raise ValueError("source_type must be a non-empty string")
+
+    source_record = get_signal_source(source_name, runtime_config)
+    expected_source_class = str(source_record["entity_type"]).strip().lower()
     if normalized_source_type != expected_source_class:
         raise ValueError(
             "source_type does not match registry classification for "
-            f"{normalized_source_name}: expected {expected_source_class}"
+            f"{source_record['source_name']}: expected {expected_source_class}"
         )
 
     return {
-        "source_name": normalized_source_name,
-        "signal_tier": registry_record["signal_tier"],
-        "signal_category": registry_record["signal_category"],
-        "source_class": registry_record["source_class"],
+        "source_name": source_record["source_name"],
+        "signal_tier": source_record["signal_tier"],
+        "signal_category": source_record["signal_category"],
+        "source_class": source_record["entity_type"],
         "valid": True,
     }
 
 
 __all__ = [
-    "SignalSourceRecord",
     "get_signal_source_registry",
+    "get_signal_source",
+    "has_signal_source",
+    "get_signal_source_names",
     "list_signal_sources",
     "resolve_signal_source",
 ]
