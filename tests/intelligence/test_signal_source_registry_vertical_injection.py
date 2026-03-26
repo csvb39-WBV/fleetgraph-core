@@ -133,7 +133,7 @@ def test_unsupported_route_target_raises_deterministic_value_error(monkeypatch: 
         ValueError,
         match="unsupported signal source registry route target: unexpected_target",
     ):
-        signal_source_registry.get_signal_source_registry(None)
+        signal_source_registry.get_signal_source_registry({"vertical": "construction_audit_litigation"})
 
 
 def test_registry_copy_safety_in_fleet_mode() -> None:
