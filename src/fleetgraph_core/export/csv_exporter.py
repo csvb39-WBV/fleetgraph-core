@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import argparse
 import csv
+import json
 from pathlib import Path
+import sys
 
 
 _CSV_HEADER = (
@@ -64,3 +67,24 @@ def export_csv_output(payload: dict[str, object], output_dir: str) -> dict[str, 
         "path": str(output_path),
         "filename": filename,
     }
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input_json_path")
+    parser.add_argument("output_dir")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
+
+    with open(args.input_json_path, "r", encoding="utf-8") as file_handle:
+        payload = json.load(file_handle)
+
+    export_csv_output(payload, args.output_dir)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

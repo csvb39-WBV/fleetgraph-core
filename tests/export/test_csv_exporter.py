@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import pathlib
 import sys
 
@@ -14,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 
+import fleetgraph_core.export.csv_exporter as csv_exporter_module
 from fleetgraph_core.export.csv_exporter import export_csv_output
 
 
@@ -159,3 +161,54 @@ def test_payload_remains_unchanged(tmp_path: pathlib.Path) -> None:
     export_csv_output(payload, str(tmp_path))
 
     assert payload == snapshot
+
+
+def test_module_entrypoint_reads_input_json_and_writes_csv(
+    tmp_path: pathlib.Path,
+) -> None:
+    input_path = tmp_path / "input.json"
+    output_dir = tmp_path / "exports"
+    input_path.write_text(
+        json.dumps(
+            {
+                "request_id": "REQ-001",
+                "results": [
+                    {
+                        "company_name": "Alpha Co",
+                        "signal_type": "litigation_risk",
+                        "priority_score": 45,
+                        "source_event_id": "EVT-001",
+                        "event_type": "litigation",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = csv_exporter_module.main([str(input_path), str(output_dir)])
+
+    assert exit_code == 0
+    assert (output_dir / "output_REQ-001.csv").read_text(encoding="utf-8") == (
+        "company,signal,priority,event_id,type\n"
+        "Alpha Co,litigation_risk,45,EVT-001,litigation\n"
+    )
+
+
+def test_module_entrypoint_propagates_missing_file_error(
+    tmp_path: pathlib.Path,
+) -> None:
+    with pytest.raises(FileNotFoundError):
+        csv_exporter_module.main(
+            [str(tmp_path / "missing.json"), str(tmp_path / "exports")]
+        )
+
+
+def test_module_entrypoint_propagates_invalid_json_error(
+    tmp_path: pathlib.Path,
+) -> None:
+    input_path = tmp_path / "invalid.json"
+    input_path.write_text("{bad json", encoding="utf-8")
+
+    with pytest.raises(json.JSONDecodeError):
+        csv_exporter_module.main([str(input_path), str(tmp_path / "exports")])
