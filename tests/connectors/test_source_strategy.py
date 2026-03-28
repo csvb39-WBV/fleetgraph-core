@@ -26,7 +26,7 @@ def test_multi_source_primary_fails_html_fallback_succeeds() -> None:
         return "<rss><channel></channel></rss>"
 
     metadata = retrieve_results_with_metadata(
-        "lawsuit filed against contractor company major project",
+        "company sued over project delays",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
@@ -54,8 +54,8 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
             return """
             <rss><channel>
                 <item>
-                    <title>Beacon Masonry Services audit investigation announced</title>
-                    <description>Beacon Masonry Services audit investigation announced for a public project.</description>
+                    <title>Beacon Masonry Services investigation announced</title>
+                    <description>Beacon Masonry Services investigation announced for a public project.</description>
                     <link>https://example.com/beacon</link>
                 </item>
             </channel></rss>
@@ -63,7 +63,7 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
         return ""
 
     results = retrieve_results(
-        "audit investigation company project firm holdings",
+        "investigation announced company",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
@@ -71,8 +71,8 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
 
     assert results == [
         {
-            "title": "Beacon Masonry Services audit investigation announced",
-            "snippet": "Beacon Masonry Services audit investigation announced for a public project.",
+            "title": "Beacon Masonry Services investigation announced",
+            "snippet": "Beacon Masonry Services investigation announced for a public project.",
             "url": "https://example.com/beacon",
             "source_provider": "rss_news",
         }
@@ -82,7 +82,7 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
 def test_all_sources_fail_raise_no_results_returned() -> None:
     with pytest.raises(WebSearchConnectorError, match="no_results_returned"):
         retrieve_results(
-            "lawsuit filed against contractor company major project",
+            "company sued over project delays",
             result_limit=3,
             timeout_seconds=5.0,
             fetcher=lambda provider, url, timeout_seconds: "",
@@ -96,13 +96,13 @@ def test_source_strategy_deterministic_selection() -> None:
         return ""
 
     first = retrieve_results(
-        "lawsuit filed against contractor company major project",
+        "company sued over project delays",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
     )
     second = retrieve_results(
-        "lawsuit filed against contractor company major project",
+        "company sued over project delays",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
@@ -111,9 +111,9 @@ def test_source_strategy_deterministic_selection() -> None:
     assert first == second
 
 
-def test_educational_results_fully_removed() -> None:
+def test_hard_educational_title_still_blocked() -> None:
     result_item = {
-        "title": "Construction litigation guide explained",
+        "title": "Construction litigation complete guide",
         "snippet": "Lawsuit filed against Atlas Build Group.",
         "url": "https://example.com/guide",
         "source_provider": "duckduckgo_api",
@@ -122,27 +122,34 @@ def test_educational_results_fully_removed() -> None:
     assert is_educational_result(result_item) is True
 
 
-def test_hard_block_educational_results_even_with_event_terms() -> None:
+def test_mixed_content_with_strong_event_term_survives() -> None:
     results, suppressed_count = filter_results(
         [
             {
-                "title": "FAQ: Atlas Build Group lawsuit filed after project delay",
-                "snippet": "Complaint filed against Atlas Build Group.",
-                "url": "https://example.com/faq",
+                "title": "Construction dispute explained",
+                "snippet": "Lawsuit filed against Atlas Build Group after project delay.",
+                "url": "https://example.com/explained-event",
                 "source_provider": "duckduckgo_api",
             }
         ]
     )
 
-    assert results == []
-    assert suppressed_count == 1
+    assert suppressed_count == 0
+    assert results == [
+        {
+            "title": "Construction dispute explained",
+            "snippet": "Lawsuit filed against Atlas Build Group after project delay.",
+            "url": "https://example.com/explained-event",
+            "source_provider": "duckduckgo_api",
+        }
+    ]
 
 
 def test_event_validation_works() -> None:
     assert has_required_event_terms(
         {
-            "title": "Atlas Build Group lawsuit filed after project delay",
-            "snippet": "Federal complaint filed against Atlas Build Group.",
+            "title": "Atlas Build Group quarterly revenue update",
+            "snippet": "Subpoena issued to Atlas Build Group after project delay.",
             "url": "https://example.com/event",
             "source_provider": "duckduckgo_api",
         }
@@ -173,8 +180,8 @@ def test_mixed_batches_return_only_event_relevant_items() -> None:
                 "source_provider": "duckduckgo_api",
             },
             {
-                "title": "Atlas Build Group lawsuit filed after project delay",
-                "snippet": "Federal complaint filed against Atlas Build Group.",
+                "title": "Atlas Build Group dispute update",
+                "snippet": "Complaint filed against Atlas Build Group.",
                 "url": "https://example.com/event",
                 "source_provider": "duckduckgo_api",
             },
@@ -184,9 +191,31 @@ def test_mixed_batches_return_only_event_relevant_items() -> None:
     assert suppressed_count == 1
     assert results == [
         {
-            "title": "Atlas Build Group lawsuit filed after project delay",
-            "snippet": "Federal complaint filed against Atlas Build Group.",
+            "title": "Atlas Build Group dispute update",
+            "snippet": "Complaint filed against Atlas Build Group.",
             "url": "https://example.com/event",
             "source_provider": "duckduckgo_api",
         }
     ]
+
+
+def test_suppression_is_deterministic() -> None:
+    batch = [
+        {
+            "title": "Construction dispute explained",
+            "snippet": "Lawsuit filed against Atlas Build Group after project delay.",
+            "url": "https://example.com/explained-event",
+            "source_provider": "duckduckgo_api",
+        },
+        {
+            "title": "FAQ contractor default notice",
+            "snippet": "Default notice issued to Summit Concrete Services.",
+            "url": "https://example.com/faq",
+            "source_provider": "duckduckgo_api",
+        },
+    ]
+
+    first = filter_results(batch)
+    second = filter_results(batch)
+
+    assert first == second

@@ -9,6 +9,7 @@ _REQUIRED_MANIFEST_KEYS = {
     "source_success_count",
     "suppressed_result_count",
     "filtered_out_generic_company_count",
+    "fallback_triggered",
     "raw_results_count",
     "extracted_signal_count",
     "deduplicated_signal_count",
@@ -51,6 +52,8 @@ def build_run_manifest(manifest: dict) -> dict[str, object]:
     ):
         if not _is_valid_int(manifest[field_name]) or manifest[field_name] < 0:
             raise ValueError(f"invalid_{field_name}")
+    if not isinstance(manifest["fallback_triggered"], bool):
+        raise ValueError("invalid_fallback_triggered")
     if not _is_valid_non_empty_string(manifest["csv_path"]):
         raise ValueError("invalid_csv_path")
     if manifest["status"] not in _VALID_STATUSES:
@@ -67,6 +70,7 @@ def build_run_manifest(manifest: dict) -> dict[str, object]:
         "source_success_count": manifest["source_success_count"],
         "suppressed_result_count": manifest["suppressed_result_count"],
         "filtered_out_generic_company_count": manifest["filtered_out_generic_company_count"],
+        "fallback_triggered": manifest["fallback_triggered"],
         "raw_results_count": manifest["raw_results_count"],
         "extracted_signal_count": manifest["extracted_signal_count"],
         "deduplicated_signal_count": manifest["deduplicated_signal_count"],

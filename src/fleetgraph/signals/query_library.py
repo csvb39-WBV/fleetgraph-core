@@ -1,12 +1,28 @@
 ﻿from __future__ import annotations
 
 
-_QUERY_DEFINITIONS = (
+_PRIMARY_QUERY_DEFINITIONS = (
     {
-        "query_id": "litigation_lawsuit_filed_major_project",
-        "signal_type": "litigation",
-        "query": "lawsuit filed against contractor company major project",
+        "query_id": "construction_company_sued_project_delays",
+        "signal_type": "project_distress",
+        "query": "company sued over project delays",
         "priority_weight": 5,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "construction_contractor_payment_lawsuit",
+        "signal_type": "litigation",
+        "query": "contractor payment lawsuit filed project",
+        "priority_weight": 5,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "construction_developer_dispute_project",
+        "signal_type": "project_distress",
+        "query": "developer dispute construction project",
+        "priority_weight": 4,
         "max_results": 5,
         "intent_type": "event_based",
     },
@@ -19,27 +35,11 @@ _QUERY_DEFINITIONS = (
         "intent_type": "event_based",
     },
     {
-        "query_id": "project_distress_developer_sued_delay",
-        "signal_type": "project_distress",
-        "query": "developer sued contractor project delay infrastructure",
-        "priority_weight": 4,
-        "max_results": 5,
-        "intent_type": "event_based",
-    },
-    {
         "query_id": "project_distress_default_notice_public_project",
         "signal_type": "project_distress",
         "query": "contractor default notice issued developer public project",
         "priority_weight": 4,
         "max_results": 5,
-        "intent_type": "event_based",
-    },
-    {
-        "query_id": "audit_investigation_company_project",
-        "signal_type": "audit",
-        "query": "audit investigation company project firm holdings",
-        "priority_weight": 4,
-        "max_results": 4,
         "intent_type": "event_based",
     },
     {
@@ -51,67 +51,109 @@ _QUERY_DEFINITIONS = (
         "intent_type": "event_based",
     },
     {
-        "query_id": "litigation_subpoena_counsel",
-        "signal_type": "litigation",
-        "query": "subpoena issued company litigation counsel law firm",
+        "query_id": "fleet_company_accident_investigation_lawsuit",
+        "signal_type": "audit",
+        "query": "fleet company accident investigation lawsuit",
         "priority_weight": 5,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "fleet_logistics_contract_dispute_filed",
+        "signal_type": "project_distress",
+        "query": "logistics company contract dispute filed",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "fleet_trucking_investigation_announced",
+        "signal_type": "audit",
+        "query": "trucking company investigation announced",
+        "priority_weight": 5,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "field_service_lawsuit_client_dispute",
+        "signal_type": "project_distress",
+        "query": "service company lawsuit filed client dispute",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "field_service_investigation_announced",
+        "signal_type": "audit",
+        "query": "field service company investigation announced",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "manufacturing_supplier_dispute_lawsuit",
+        "signal_type": "litigation",
+        "query": "manufacturing company supplier dispute lawsuit",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "supply_chain_contract_dispute_filed",
+        "signal_type": "project_distress",
+        "query": "supply chain company contract dispute filed",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "vendor_dispute_company_investigation",
+        "signal_type": "audit",
+        "query": "vendor dispute company investigation",
+        "priority_weight": 4,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+)
+_FALLBACK_QUERY_DEFINITIONS = (
+    {
+        "query_id": "fallback_company_sued_project",
+        "signal_type": "litigation",
+        "query": "company sued project",
+        "priority_weight": 3,
         "max_results": 4,
         "intent_type": "event_based",
     },
     {
-        "query_id": "litigation_document_production_holdings",
-        "signal_type": "litigation",
-        "query": "document production ordered lawsuit company holdings",
-        "priority_weight": 4,
+        "query_id": "fallback_contractor_delay_lawsuit",
+        "signal_type": "project_distress",
+        "query": "contractor delay lawsuit",
+        "priority_weight": 3,
         "max_results": 4,
         "intent_type": "event_based",
     },
     {
-        "query_id": "project_distress_contractor_terminated_delay",
-        "signal_type": "project_distress",
-        "query": "contractor terminated project delay public project",
-        "priority_weight": 4,
-        "max_results": 5,
-        "intent_type": "event_based",
-    },
-    {
-        "query_id": "fleet_accident_investigation",
+        "query_id": "fallback_investigation_announced_company",
         "signal_type": "audit",
-        "query": "fleet accident investigation company logistics",
-        "priority_weight": 5,
-        "max_results": 5,
+        "query": "investigation announced company",
+        "priority_weight": 3,
+        "max_results": 4,
         "intent_type": "event_based",
     },
     {
-        "query_id": "fleet_compliance_violation",
-        "signal_type": "audit",
-        "query": "trucking company compliance violation investigation",
-        "priority_weight": 5,
-        "max_results": 5,
-        "intent_type": "event_based",
-    },
-    {
-        "query_id": "field_service_dispute",
+        "query_id": "fallback_default_notice_contractor",
         "signal_type": "project_distress",
-        "query": "service company dispute contract project",
-        "priority_weight": 4,
-        "max_results": 5,
+        "query": "default notice contractor",
+        "priority_weight": 3,
+        "max_results": 4,
         "intent_type": "event_based",
     },
     {
-        "query_id": "manufacturing_supplier_dispute",
+        "query_id": "fallback_subpoena_issued_company",
         "signal_type": "litigation",
-        "query": "supplier dispute manufacturing company contract",
-        "priority_weight": 4,
-        "max_results": 5,
-        "intent_type": "event_based",
-    },
-    {
-        "query_id": "supply_chain_disruption",
-        "signal_type": "project_distress",
-        "query": "supply chain disruption company contract dispute",
-        "priority_weight": 4,
-        "max_results": 5,
+        "query": "subpoena issued company",
+        "priority_weight": 3,
+        "max_results": 4,
         "intent_type": "event_based",
     },
 )
@@ -155,8 +197,8 @@ def _is_valid_query_definition(query_definition: object) -> bool:
     return True
 
 
-def get_ordered_query_definitions() -> list[dict[str, object]]:
-    ordered_query_definitions = [
+def _copy_query_definitions(query_definitions: tuple[dict[str, object], ...]) -> list[dict[str, object]]:
+    copied_query_definitions = [
         {
             "query_id": query_definition["query_id"],
             "signal_type": query_definition["signal_type"],
@@ -165,8 +207,16 @@ def get_ordered_query_definitions() -> list[dict[str, object]]:
             "max_results": query_definition["max_results"],
             "intent_type": query_definition["intent_type"],
         }
-        for query_definition in _QUERY_DEFINITIONS
+        for query_definition in query_definitions
     ]
-    if not all(_is_valid_query_definition(query_definition) for query_definition in ordered_query_definitions):
+    if not all(_is_valid_query_definition(query_definition) for query_definition in copied_query_definitions):
         raise ValueError("invalid_query_library")
-    return ordered_query_definitions
+    return copied_query_definitions
+
+
+def get_ordered_query_definitions() -> list[dict[str, object]]:
+    return _copy_query_definitions(_PRIMARY_QUERY_DEFINITIONS)
+
+
+def get_fallback_query_definitions() -> list[dict[str, object]]:
+    return _copy_query_definitions(_FALLBACK_QUERY_DEFINITIONS)

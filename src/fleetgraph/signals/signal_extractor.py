@@ -75,6 +75,7 @@ REQUIRED_EVENT_TERMS = (
     "dispute",
     "terminated",
     "halted",
+    "ordered",
 )
 _NORMALIZED_GENERIC_COMPANY_TERMS = frozenset(
     " ".join(term.lower().split()) for term in GENERIC_COMPANY_TERMS

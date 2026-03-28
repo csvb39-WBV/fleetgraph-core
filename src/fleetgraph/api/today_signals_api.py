@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import csv
 import json
@@ -14,6 +14,7 @@ _REQUIRED_MANIFEST_KEYS = {
     "cache_misses",
     "retained_signal_count",
     "exported_signal_count",
+    "fallback_triggered",
     "csv_path",
     "status",
     "error_code",
@@ -59,6 +60,8 @@ def _validate_manifest(manifest: object) -> bool:
     if not _is_non_empty_string(manifest["run_date"]):
         return False
     if not _is_non_empty_string(manifest["csv_path"]):
+        return False
+    if not isinstance(manifest["fallback_triggered"], bool):
         return False
     if manifest["status"] not in _ALLOWED_STATUS:
         return False

@@ -9,7 +9,7 @@ from fleetgraph.output.signal_output_formatter import format_signals
 from fleetgraph.runtime.output_persistence import resolve_output_paths, write_debug_report, write_manifest
 from fleetgraph.runtime.run_manifest import build_run_manifest
 from fleetgraph.runtime.runtime_config import build_runtime_config
-from fleetgraph.signals.query_library import get_ordered_query_definitions
+from fleetgraph.signals.query_library import get_fallback_query_definitions, get_ordered_query_definitions
 from fleetgraph.signals.signal_extractor import extract_signal, get_signal_rejection_reason
 from fleetgraph.signals.signal_filter_engine import filter_signals
 from fleetgraph.signals.signal_scoring_engine import score_signals
@@ -19,6 +19,8 @@ def _build_debug_report(
     *,
     query_definitions: list[dict[str, object]],
     query_execution: list[dict[str, object]],
+    query_pack_used: str,
+    fallback_triggered: bool,
     suppressed_result_count: int,
     filtered_out_generic_company_count: int,
     raw_results: list[dict[str, str]],
@@ -30,6 +32,7 @@ def _build_debug_report(
     return {
         "queries": [
             {
+                "query_pack": query_definition["query_pack"],
                 "query_id": query_definition["query_id"],
                 "query": query_definition["query"],
                 "signal_type": query_definition["signal_type"],
@@ -38,10 +41,13 @@ def _build_debug_report(
             }
             for query_definition in query_definitions
         ],
+        "query_pack_used": query_pack_used,
+        "fallback_triggered": fallback_triggered,
         "suppressed_result_count": suppressed_result_count,
         "filtered_out_generic_company_count": filtered_out_generic_company_count,
         "query_execution": [
             {
+                "query_pack": entry["query_pack"],
                 "query": entry["query"],
                 "source_used": entry["source_used"],
                 "result_count": entry["result_count"],
@@ -100,8 +106,13 @@ def execute_signal_pipeline(
         source_fetcher=source_fetcher,
     )
 
-    query_definitions = validate_query_budget(
+    primary_query_definitions = validate_query_budget(
         get_ordered_query_definitions(),
+        max_queries_per_run=validated_runtime_config["max_queries_per_run"],
+        max_results_per_query=validated_runtime_config["max_results_per_query"],
+    )
+    fallback_query_definitions = validate_query_budget(
+        get_fallback_query_definitions(),
         max_queries_per_run=validated_runtime_config["max_queries_per_run"],
         max_results_per_query=validated_runtime_config["max_results_per_query"],
     )
@@ -111,26 +122,37 @@ def execute_signal_pipeline(
     source_success_count = 0
     suppressed_result_count = 0
     filtered_out_generic_company_count = 0
+    fallback_triggered = False
+    query_pack_used = "primary"
     raw_results: list[dict[str, str]] = []
     extracted_signals: list[dict[str, object]] = []
     deduplicated_signals: list[dict[str, object]] = []
     retained_signals: list[dict[str, object]] = []
     primary_signals: list[dict[str, object]] = []
-    query_execution = [
-        {
-            "query": query_definition["query"],
-            "source_used": "not_executed",
-            "result_count": 0,
-            "suppressed_count": 0,
-            "error_code": None,
-        }
-        for query_definition in query_definitions
-    ]
+    executed_query_definitions: list[dict[str, object]] = []
+    query_execution: list[dict[str, object]] = []
 
-    try:
-        for index, query_definition in enumerate(query_definitions):
+    def run_query_pack(query_definitions: list[dict[str, object]], *, query_pack: str) -> list[dict[str, object]]:
+        nonlocal cache_hits
+        nonlocal cache_misses
+        nonlocal source_success_count
+        nonlocal suppressed_result_count
+        nonlocal filtered_out_generic_company_count
+
+        pack_signals: list[dict[str, object]] = []
+        for query_definition in query_definitions:
             query = query_definition["query"]
             result_limit = query_definition["max_results"]
+            executed_query_definitions.append(
+                {
+                    "query_pack": query_pack,
+                    "query_id": query_definition["query_id"],
+                    "query": query_definition["query"],
+                    "signal_type": query_definition["signal_type"],
+                    "max_results": query_definition["max_results"],
+                    "intent_type": query_definition["intent_type"],
+                }
+            )
             cached_results = cache.get(query)
             if cached_results is None:
                 cache_misses += 1
@@ -139,33 +161,42 @@ def execute_signal_pipeline(
                 except Exception as exc:
                     last_search_metadata = connector.get_last_search_metadata()
                     suppressed_result_count += int(last_search_metadata["suppressed_count"])
-                    query_execution[index] = {
-                        "query": query,
-                        "source_used": last_search_metadata["source_used"],
-                        "result_count": int(last_search_metadata["result_count"]),
-                        "suppressed_count": int(last_search_metadata["suppressed_count"]),
-                        "error_code": str(exc),
-                    }
+                    query_execution.append(
+                        {
+                            "query_pack": query_pack,
+                            "query": query,
+                            "source_used": last_search_metadata["source_used"],
+                            "result_count": int(last_search_metadata["result_count"]),
+                            "suppressed_count": int(last_search_metadata["suppressed_count"]),
+                            "error_code": str(exc),
+                        }
+                    )
                     raise
                 last_search_metadata = connector.get_last_search_metadata()
                 suppressed_result_count += int(last_search_metadata["suppressed_count"])
                 cache.set(query, cached_results)
-                query_execution[index] = {
-                    "query": query,
-                    "source_used": str(last_search_metadata["source_used"]),
-                    "result_count": len(cached_results),
-                    "suppressed_count": int(last_search_metadata["suppressed_count"]),
-                    "error_code": None,
-                }
+                query_execution.append(
+                    {
+                        "query_pack": query_pack,
+                        "query": query,
+                        "source_used": str(last_search_metadata["source_used"]),
+                        "result_count": len(cached_results),
+                        "suppressed_count": int(last_search_metadata["suppressed_count"]),
+                        "error_code": None,
+                    }
+                )
             else:
                 cache_hits += 1
-                query_execution[index] = {
-                    "query": query,
-                    "source_used": cached_results[0]["source_provider"] if len(cached_results) > 0 else "none",
-                    "result_count": len(cached_results),
-                    "suppressed_count": 0,
-                    "error_code": None,
-                }
+                query_execution.append(
+                    {
+                        "query_pack": query_pack,
+                        "query": query,
+                        "source_used": cached_results[0]["source_provider"] if len(cached_results) > 0 else "none",
+                        "result_count": len(cached_results),
+                        "suppressed_count": 0,
+                        "error_code": None,
+                    }
+                )
             if len(cached_results) > 0:
                 source_success_count += 1
             for result_item in cached_results:
@@ -188,6 +219,15 @@ def execute_signal_pipeline(
                 if rejection_reason is not None:
                     continue
                 extracted_signals.append(signal)
+                pack_signals.append(signal)
+        return pack_signals
+
+    try:
+        primary_pack_signals = run_query_pack(primary_query_definitions, query_pack="primary")
+        if len(primary_pack_signals) == 0:
+            fallback_triggered = True
+            query_pack_used = "fallback"
+            _ = run_query_pack(fallback_query_definitions, query_pack="fallback")
 
         deduplicated_signals = deduplicate_signals(extracted_signals)
         if len(deduplicated_signals) == 0:
@@ -206,12 +246,13 @@ def execute_signal_pipeline(
         manifest = build_run_manifest(
             {
                 "run_date": validated_runtime_config["run_date"],
-                "query_count_executed": len(query_definitions),
+                "query_count_executed": len(query_execution),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
                 "suppressed_result_count": suppressed_result_count,
                 "filtered_out_generic_company_count": filtered_out_generic_company_count,
+                "fallback_triggered": fallback_triggered,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -224,8 +265,10 @@ def execute_signal_pipeline(
         )
         manifest_path = write_manifest(manifest, output_paths["output_directory"])
         debug_report = _build_debug_report(
-            query_definitions=query_definitions,
+            query_definitions=executed_query_definitions,
             query_execution=query_execution,
+            query_pack_used=query_pack_used,
+            fallback_triggered=fallback_triggered,
             suppressed_result_count=suppressed_result_count,
             filtered_out_generic_company_count=filtered_out_generic_company_count,
             raw_results=raw_results,
@@ -250,12 +293,13 @@ def execute_signal_pipeline(
         manifest = build_run_manifest(
             {
                 "run_date": validated_runtime_config["run_date"],
-                "query_count_executed": len(query_definitions),
+                "query_count_executed": len(query_execution),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
                 "suppressed_result_count": suppressed_result_count,
                 "filtered_out_generic_company_count": filtered_out_generic_company_count,
+                "fallback_triggered": fallback_triggered,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -268,8 +312,10 @@ def execute_signal_pipeline(
         )
         manifest_path = write_manifest(manifest, output_paths["output_directory"])
         debug_report = _build_debug_report(
-            query_definitions=query_definitions,
+            query_definitions=executed_query_definitions,
             query_execution=query_execution,
+            query_pack_used=query_pack_used,
+            fallback_triggered=fallback_triggered,
             suppressed_result_count=suppressed_result_count,
             filtered_out_generic_company_count=filtered_out_generic_company_count,
             raw_results=raw_results,

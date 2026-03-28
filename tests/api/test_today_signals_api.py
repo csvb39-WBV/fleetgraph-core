@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import csv
 import json
@@ -66,6 +66,7 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
         "cache_misses": 5,
         "retained_signal_count": 2,
         "exported_signal_count": 2,
+        "fallback_triggered": False,
         "csv_path": str(csv_path),
         "status": "success",
         "error_code": None,

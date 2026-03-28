@@ -12,19 +12,21 @@ _PROVIDER_ORDER = (
     "rss_news",
 )
 _SUPPORTED_PROVIDERS = set(_PROVIDER_ORDER)
-HARD_BLOCK_TERMS = (
+_HARD_BLOCK_TERMS = (
     "guide",
     "what is",
     "what to do",
     "faq",
     "faqs",
-    "tips",
-    "explained",
+    "how to",
     "complete guide",
     "comprehensive guide",
+)
+_SOFT_EDUCATIONAL_TERMS = (
+    "tips",
+    "explained",
     "understanding",
     "law overview",
-    "how to",
 )
 _REQUIRED_EVENT_TERMS = (
     "sued",
@@ -37,6 +39,7 @@ _REQUIRED_EVENT_TERMS = (
     "dispute",
     "terminated",
     "halted",
+    "ordered",
 )
 
 
@@ -159,14 +162,29 @@ def _normalize_for_filtering(value: str) -> str:
     return " ".join(value.lower().split())
 
 
+def _contains_event_terms(text: str) -> bool:
+    return any(term in text for term in _REQUIRED_EVENT_TERMS)
+
+
 def is_educational_result(result_item: dict[str, str]) -> bool:
     normalized_title = _normalize_for_filtering(result_item["title"])
-    return any(term in normalized_title for term in HARD_BLOCK_TERMS)
+    normalized_combined_text = _normalize_for_filtering(
+        f"{result_item['title']} {result_item['snippet']}"
+    )
+    if any(term in normalized_title for term in _HARD_BLOCK_TERMS):
+        return True
+    if any(term in normalized_title for term in _SOFT_EDUCATIONAL_TERMS) and not _contains_event_terms(
+        normalized_combined_text
+    ):
+        return True
+    return False
 
 
 def has_required_event_terms(result_item: dict[str, str]) -> bool:
-    normalized_title = _normalize_for_filtering(result_item["title"])
-    return any(term in normalized_title for term in _REQUIRED_EVENT_TERMS)
+    normalized_combined_text = _normalize_for_filtering(
+        f"{result_item['title']} {result_item['snippet']}"
+    )
+    return _contains_event_terms(normalized_combined_text)
 
 
 def filter_results(results: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
