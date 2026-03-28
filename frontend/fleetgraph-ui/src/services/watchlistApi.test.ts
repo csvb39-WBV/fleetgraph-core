@@ -1,23 +1,152 @@
-import { expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { filterWatchlistCompanies, getWatchlistPilotCompanies } from './watchlistApi';
+import {
+  filterWatchlistCompanies,
+  getWatchlistCompanies,
+  getWatchlistCompanyDetail,
+  refreshWatchlistCompany,
+} from './watchlistApi';
 
-test('pilot companies load deterministically', async () => {
-  const first = await getWatchlistPilotCompanies();
-  const second = await getWatchlistPilotCompanies();
+const mockFetch = vi.fn();
+
+const beaconCompany = {
+  company_id: 'beacon-holdings',
+  company_name: 'Beacon Holdings',
+  category: 'Logistics',
+  segment: 'Fleet Operations',
+  priority_tier: 'Tier 1',
+  website: 'https://www.beaconholdings.example',
+  hq_city: 'Chicago',
+  hq_state: 'IL',
+  hq_zip: '60601',
+  phone: '312-555-0100',
+  ceo_name: 'Morgan Hale',
+  cfo_name: 'Jordan Pike',
+  chief_risk_officer_name: 'Avery Stone',
+  verification_status: 'verified',
+  notes: 'Pilot verified subset company',
+  main_phone: '312-555-0100',
+  key_people: [
+    {
+      name: 'Morgan Hale',
+      title: 'Chief Executive Officer',
+      source_url: 'https://www.beaconholdings.example/leadership',
+      confidence: 'HIGH',
+      basis: 'seed',
+    },
+  ],
+  published_emails: [],
+  email_pattern_guess: 'first.last@beaconholdings.example',
+  recent_signals: [
+    {
+      title: 'Audit notice posted for Beacon Holdings',
+      signal_type: 'audit',
+      source_url: 'https://audit.example/beacon-holdings-notice',
+      confidence: 'HIGH',
+      status: 'open',
+    },
+  ],
+  recent_projects: [],
+  source_links: ['https://audit.example/beacon-holdings-notice'],
+  last_enriched_at: '2026-03-28T09:00:00Z',
+  confidence_level: 'HIGH',
+  enrichment_state: 'enriched',
+} as const;
+
+const smithCompany = {
+  company_id: 'smith-jones-llp',
+  company_name: 'Smith & Jones LLP',
+  category: 'Professional Services',
+  segment: 'Legal Services',
+  priority_tier: 'Tier 1',
+  website: 'https://www.smithjonesllp.example',
+  hq_city: 'New York',
+  hq_state: 'NY',
+  hq_zip: '10005',
+  phone: '212-555-0199',
+  ceo_name: '',
+  cfo_name: 'Taylor Brooks',
+  chief_risk_officer_name: '',
+  verification_status: 'verified',
+  notes: 'Pilot verified subset company',
+  main_phone: '212-555-0199',
+  key_people: [],
+  published_emails: [],
+  email_pattern_guess: 'first_initiallast@smithjonesllp.example',
+  recent_signals: [],
+  recent_projects: [],
+  source_links: [],
+  last_enriched_at: '',
+  confidence_level: 'MEDIUM',
+  enrichment_state: 'partial',
+} as const;
+
+beforeEach(() => {
+  mockFetch.mockReset();
+  vi.stubGlobal('fetch', mockFetch);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+test('live watchlist companies load deterministically', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      companies: [smithCompany, beaconCompany],
+      error_code: null,
+    }),
+  });
+
+  const first = await getWatchlistCompanies();
+  const second = await getWatchlistCompanies();
 
   expect(first).toEqual(second);
-  expect(first.map((company) => company.company_name)).toEqual([
-    'Beacon Holdings',
-    'Smith & Jones LLP',
-    'Atlas Services Group',
+  expect(first.map((company) => company.company_id)).toEqual([
+    'beacon-holdings',
+    'smith-jones-llp',
   ]);
 });
 
-test('filters apply deterministically', async () => {
-  const companies = await getWatchlistPilotCompanies();
+test('company detail binds from live detail endpoint', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      company: beaconCompany,
+      error_code: null,
+    }),
+  });
 
-  const filtered = filterWatchlistCompanies(companies, {
+  const result = await getWatchlistCompanyDetail('beacon-holdings');
+
+  expect(result.company_name).toBe('Beacon Holdings');
+  expect(result.last_enriched_at).toBe('2026-03-28T09:00:00Z');
+});
+
+test('refresh returns updated company record', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      company: {
+        ...beaconCompany,
+        last_enriched_at: '2026-03-28T10:45:00Z',
+      },
+      refresh_status: 'refresh_succeeded',
+      error_code: null,
+    }),
+  });
+
+  const result = await refreshWatchlistCompany('beacon-holdings');
+
+  expect(result.last_enriched_at).toBe('2026-03-28T10:45:00Z');
+});
+
+test('filters apply deterministically to live company records', async () => {
+  const filtered = filterWatchlistCompanies([beaconCompany, smithCompany], {
     category: 'Professional Services',
     segment: 'Legal Services',
     priority_tier: 'Tier 1',
@@ -25,5 +154,5 @@ test('filters apply deterministically', async () => {
     enrichment_state: 'partial',
   });
 
-  expect(filtered.map((company) => company.company_name)).toEqual(['Smith & Jones LLP']);
+  expect(filtered.map((company) => company.company_id)).toEqual(['smith-jones-llp']);
 });

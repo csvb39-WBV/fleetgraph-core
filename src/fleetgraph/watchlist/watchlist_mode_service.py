@@ -9,6 +9,8 @@ from fleetgraph.runtime.runtime_config import build_runtime_config
 from fleetgraph.watchlist.artifact_writer import write_watchlist_artifact
 from fleetgraph.watchlist.enrichment_coordinator import build_enrichment_record
 from fleetgraph.watchlist.query_pack_generator import generate_company_query_pack
+from fleetgraph.watchlist.read_service import get_watchlist_company_record, list_watchlist_company_records
+from fleetgraph.watchlist.watchlist_loader import load_seed_enriched, load_verified_subset
 
 
 def _deduplicate_results(search_results: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -25,6 +27,14 @@ def _deduplicate_results(search_results: list[dict[str, str]]) -> list[dict[str,
             seen_keys.add(result_key)
             deduplicated_results.append(result_item)
     return deduplicated_results
+
+
+def _load_dataset_records(dataset: str) -> list[dict[str, object]]:
+    if dataset == "verified_subset":
+        return load_verified_subset()
+    if dataset == "seed_enriched":
+        return load_seed_enriched()
+    raise ValueError("invalid_watchlist_dataset")
 
 
 def enrich_watchlist_company(
@@ -116,6 +126,62 @@ def execute_watchlist_mode(
     }
 
 
+def refresh_watchlist_company(
+    runtime_config: dict,
+    *,
+    company_id: str,
+    dataset: str = "verified_subset",
+    transport: object | None = None,
+    source_fetcher: object | None = None,
+    current_time: int = 0,
+) -> dict[str, object]:
+    if not isinstance(company_id, str) or company_id.strip() == "":
+        raise ValueError("invalid_company_id")
+    validated_runtime_config = build_runtime_config(runtime_config)
+    dataset_records = _load_dataset_records(dataset)
+    watchlist_entity = next((record for record in dataset_records if record["company_id"] == company_id), None)
+    if watchlist_entity is None:
+        return {
+            "mode": "watchlist",
+            "ok": False,
+            "company": None,
+            "artifact_path": None,
+            "error_code": "unknown_company_id",
+        }
+    connector = WebSearchConnector(
+        timeout_seconds=validated_runtime_config["connector_timeout_seconds"],
+        max_retries=validated_runtime_config["connector_max_retries"],
+        transport=transport,
+        source_fetcher=source_fetcher,
+    )
+    cache = ResultCache(validated_runtime_config["cache_path"], current_time=current_time)
+    company_result = enrich_watchlist_company(
+        watchlist_entity,
+        connector=connector,
+        cache=cache,
+        run_date=str(validated_runtime_config["run_date"]),
+    )
+    artifact_output_directory = Path(validated_runtime_config["output_directory"]) / "watchlist"
+    artifact_path = write_watchlist_artifact(
+        company_result["enrichment_record"],
+        artifact_output_directory,
+        company_id=company_id,
+    )
+    merged_company_result = get_watchlist_company_record(
+        company_id,
+        runtime_config=validated_runtime_config,
+        dataset=dataset,
+    )
+    return {
+        "mode": "watchlist",
+        "ok": True,
+        "company": merged_company_result["company"],
+        "artifact_path": artifact_path,
+        "refresh_result": company_result,
+        "error_code": None,
+    }
+
+
 def execute_platform_mode(
     *,
     mode: str,
@@ -143,3 +209,17 @@ def execute_platform_mode(
             current_time=current_time,
         )
     raise ValueError("invalid_mode")
+
+
+def list_watchlist_mode_companies(
+    runtime_config: dict,
+    *,
+    dataset: str = "verified_subset",
+) -> dict[str, object]:
+    validated_runtime_config = build_runtime_config(runtime_config)
+    return {
+        "mode": "watchlist",
+        "ok": True,
+        "companies": list_watchlist_company_records(runtime_config=validated_runtime_config, dataset=dataset),
+        "error_code": None,
+    }

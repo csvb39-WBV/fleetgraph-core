@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { WatchlistCompanyRecord } from '../../services/watchlistApi';
+import type { WatchlistCompanyRecord, WatchlistRefreshStatus } from '../../services/watchlistApi';
 import ContactsPanel from './ContactsPanel';
 import KeyPeoplePanel from './KeyPeoplePanel';
 import ProjectsLocationsPanel from './ProjectsLocationsPanel';
@@ -9,6 +9,9 @@ import SourceConfidencePanel from './SourceConfidencePanel';
 
 type Props = {
   company: WatchlistCompanyRecord | null;
+  refreshStatus: WatchlistRefreshStatus;
+  refreshErrorMessage: string;
+  onRefresh: () => void;
 };
 
 function enrichmentSummary(company: WatchlistCompanyRecord): string {
@@ -21,7 +24,20 @@ function enrichmentSummary(company: WatchlistCompanyRecord): string {
   return 'This company is seeded in Watchlist Mode, but enrichment has not been completed yet.';
 }
 
-export function CompanyDetailConsole({ company }: Props): JSX.Element {
+function refreshStatusLabel(refreshStatus: WatchlistRefreshStatus): string {
+  if (refreshStatus === 'refreshing') {
+    return 'Refreshing selected company...';
+  }
+  if (refreshStatus === 'refresh_succeeded') {
+    return 'Refresh succeeded.';
+  }
+  if (refreshStatus === 'refresh_failed') {
+    return 'Refresh failed.';
+  }
+  return 'Idle';
+}
+
+export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessage, onRefresh }: Props): JSX.Element {
   if (!company) {
     return (
       <section aria-label="Company Detail Console" style={{ border: '1px solid #d9e2ec', borderRadius: '16px', background: '#ffffff', padding: '20px' }}>
@@ -37,8 +53,30 @@ export function CompanyDetailConsole({ company }: Props): JSX.Element {
         <div style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1d4ed8', fontWeight: 700 }}>
           Watchlist Company Detail
         </div>
-        <h2 style={{ marginBottom: '8px' }}>{company.company_name}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'start', flexWrap: 'wrap' }}>
+          <h2 style={{ marginBottom: '8px' }}>{company.company_name}</h2>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshStatus === 'refreshing'}
+            style={{
+              border: '1px solid #1d4ed8',
+              borderRadius: '10px',
+              background: refreshStatus === 'refreshing' ? '#bfdbfe' : '#dbeafe',
+              color: '#1d4ed8',
+              padding: '10px 14px',
+              fontWeight: 700,
+              cursor: refreshStatus === 'refreshing' ? 'wait' : 'pointer',
+            }}
+          >
+            Refresh Company
+          </button>
+        </div>
         <p style={{ marginTop: 0, color: '#475569' }}>{enrichmentSummary(company)}</p>
+        <div style={{ display: 'grid', gap: '4px', marginBottom: '10px', fontSize: '13px', color: '#334155' }}>
+          <div><strong>Refresh Status:</strong> {refreshStatusLabel(refreshStatus)}</div>
+          {refreshErrorMessage ? <div><strong>Refresh Error:</strong> {refreshErrorMessage}</div> : null}
+        </div>
         <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
           <div><strong>Category:</strong> {company.category}</div>
           <div><strong>Segment:</strong> {company.segment}</div>

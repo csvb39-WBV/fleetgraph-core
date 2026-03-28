@@ -4,8 +4,8 @@ import type { WatchlistCompanyRecord } from '../../services/watchlistApi';
 
 type Props = {
   companies: WatchlistCompanyRecord[];
-  selectedCompanyName: string | null;
-  onSelectCompany: (companyName: string) => void;
+  selectedCompanyId: string | null;
+  onSelectCompany: (companyId: string) => void;
 };
 
 function enrichmentLabel(state: WatchlistCompanyRecord['enrichment_state']): string {
@@ -18,7 +18,7 @@ function enrichmentLabel(state: WatchlistCompanyRecord['enrichment_state']): str
   return 'Seed Only';
 }
 
-export function WatchlistCompanyTable({ companies, selectedCompanyName, onSelectCompany }: Props): JSX.Element {
+export function WatchlistCompanyTable({ companies, selectedCompanyId, onSelectCompany }: Props): JSX.Element {
   return (
     <section aria-label="Watchlist Company Table">
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#ffffff', borderRadius: '16px', overflow: 'hidden' }}>
@@ -34,11 +34,11 @@ export function WatchlistCompanyTable({ companies, selectedCompanyName, onSelect
         </thead>
         <tbody>
           {companies.map((company) => {
-            const isSelected = company.company_name === selectedCompanyName;
+            const isSelected = company.company_id === selectedCompanyId;
             return (
               <tr
-                key={company.company_name}
-                onClick={() => onSelectCompany(company.company_name)}
+                key={company.company_id}
+                onClick={() => onSelectCompany(company.company_id)}
                 style={{
                   cursor: 'pointer',
                   background: isSelected ? '#eff6ff' : '#ffffff',

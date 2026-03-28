@@ -14,7 +14,12 @@ if str(SRC_ROOT) not in sys.path:
 
 import fleetgraph.watchlist.watchlist_mode_service as watchlist_mode_service
 from fleetgraph.watchlist.watchlist_loader import load_verified_subset
-from fleetgraph.watchlist.watchlist_mode_service import execute_platform_mode, execute_watchlist_mode
+from fleetgraph.watchlist.watchlist_mode_service import (
+    execute_platform_mode,
+    execute_watchlist_mode,
+    list_watchlist_mode_companies,
+    refresh_watchlist_company,
+)
 
 
 class WatchlistTransport:
@@ -87,6 +92,94 @@ def test_watchlist_mode_is_explicit_and_enriches_one_company(tmp_path: pathlib.P
             "confidence": "high",
         }
     ]
+
+
+def test_list_watchlist_mode_companies_returns_live_merged_records(tmp_path: pathlib.Path) -> None:
+    company = load_verified_subset()[0]
+    runtime_config = _runtime_config(tmp_path)
+    _ = execute_watchlist_mode(
+        runtime_config,
+        watchlist_records=[company],
+        transport=WatchlistTransport(),
+        current_time=100,
+    )
+
+    listing = list_watchlist_mode_companies(runtime_config, dataset="verified_subset")
+
+    assert listing["mode"] == "watchlist"
+    assert listing["ok"] is True
+    listed_company = next(item for item in listing["companies"] if item["company_id"] == company["company_id"])
+    assert listed_company["enrichment_state"] == "enriched"
+    assert listed_company["last_enriched_at"] == "2026-03-28"
+
+
+def test_refresh_watchlist_company_updates_persisted_artifact(tmp_path: pathlib.Path) -> None:
+    company = load_verified_subset()[0]
+    runtime_config = _runtime_config(tmp_path)
+
+    first = refresh_watchlist_company(
+        runtime_config,
+        company_id=str(company["company_id"]),
+        transport=EmptyHitTransport(),
+        current_time=100,
+    )
+    second = refresh_watchlist_company(
+        runtime_config,
+        company_id=str(company["company_id"]),
+        transport=WatchlistTransport(),
+        current_time=100,
+    )
+
+    assert first["ok"] is True
+    assert first["company"]["enrichment_state"] == "partial"
+    assert second["ok"] is True
+    assert second["company"]["enrichment_state"] == "enriched"
+    artifact_payload = json.loads(pathlib.Path(second["artifact_path"]).read_text(encoding="utf-8"))
+    assert artifact_payload["published_emails"] == [
+        {
+            "email": "jane.doe@turnerconstruction.com",
+            "source_url": "https://example.com/turner-lawsuit",
+            "confidence": "high",
+        }
+    ]
+
+
+def test_refresh_unknown_company_id_fails_deterministically(tmp_path: pathlib.Path) -> None:
+    result = refresh_watchlist_company(
+        _runtime_config(tmp_path),
+        company_id="missing-company",
+        transport=WatchlistTransport(),
+        current_time=100,
+    )
+
+    assert result == {
+        "mode": "watchlist",
+        "ok": False,
+        "company": None,
+        "artifact_path": None,
+        "error_code": "unknown_company_id",
+    }
+
+
+def test_repeated_refresh_is_deterministic_for_fixed_input(tmp_path: pathlib.Path) -> None:
+    company = load_verified_subset()[0]
+
+    first = refresh_watchlist_company(
+        _runtime_config(tmp_path / "first"),
+        company_id=str(company["company_id"]),
+        transport=WatchlistTransport(),
+        current_time=100,
+    )
+    second = refresh_watchlist_company(
+        _runtime_config(tmp_path / "second"),
+        company_id=str(company["company_id"]),
+        transport=WatchlistTransport(),
+        current_time=100,
+    )
+
+    first_company = dict(first["company"])
+    second_company = dict(second["company"])
+    assert first_company == second_company
 
 
 def test_empty_hits_return_deterministic_empty_artifact(tmp_path: pathlib.Path) -> None:
