@@ -3,6 +3,7 @@ import React from 'react';
 import type { ContactConfidenceLevel, WatchlistCompanyRecord, WatchlistRefreshStatus } from '../../services/watchlistApi';
 import ContactsPanel from './ContactsPanel';
 import KeyPeoplePanel from './KeyPeoplePanel';
+import OutreachDraftPanel from './OutreachDraftPanel';
 import ProjectsLocationsPanel from './ProjectsLocationsPanel';
 import RecentSignalsPanel from './RecentSignalsPanel';
 import SourceConfidencePanel from './SourceConfidencePanel';
@@ -12,6 +13,8 @@ type Props = {
   refreshStatus: WatchlistRefreshStatus;
   refreshErrorMessage: string;
   onRefresh: () => void;
+  onMarkDrafted: () => void;
+  onMarkSuppressed: () => void;
 };
 
 function enrichmentSummary(company: WatchlistCompanyRecord): string {
@@ -82,7 +85,14 @@ function reachabilityLabel(reachabilityScore: number, confidence: ContactConfide
   return 'LOW REACHABILITY';
 }
 
-export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessage, onRefresh }: Props): JSX.Element {
+export function CompanyDetailConsole({
+  company,
+  refreshStatus,
+  refreshErrorMessage,
+  onRefresh,
+  onMarkDrafted,
+  onMarkSuppressed,
+}: Props): JSX.Element {
   if (!company) {
     return (
       <section aria-label="Company Detail Console" style={{ border: '1px solid #d9e2ec', borderRadius: '16px', background: '#ffffff', padding: '20px' }}>
@@ -151,6 +161,11 @@ export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessa
         emailPatternGuess={company.email_pattern_guess}
         contactConfidenceLevel={company.contact_confidence_level}
         reachabilityScore={company.reachability_score}
+      />
+      <OutreachDraftPanel
+        outreachRecord={company.outreach_record}
+        onMarkDrafted={onMarkDrafted}
+        onMarkSuppressed={onMarkSuppressed}
       />
       <RecentSignalsPanel signals={company.recent_signals} />
       <ProjectsLocationsPanel website={company.website} hqCity={company.hq_city} hqState={company.hq_state} recentProjects={company.recent_projects} />

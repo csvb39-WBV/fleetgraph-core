@@ -6,8 +6,10 @@ import {
   getWatchlistCompanies,
   getWatchlistCompanyDetail,
   getWatchlistNeedsReview,
+  getWatchlistOutreachQueue,
   getWatchlistTopTargets,
   refreshWatchlistCompany,
+  updateWatchlistOutreachStatus,
 } from './watchlistApi';
 
 const mockFetch = vi.fn();
@@ -113,6 +115,25 @@ const beaconCompany = {
     needs_review: true,
     needs_review_reasons: ['changed_since_last_run'],
   },
+  outreach_record: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    contact_name: 'Morgan Hale',
+    contact_email: 'morgan.hale@beaconholdings.example',
+    contact_phone: '312-555-0101',
+    contact_type: 'direct_email',
+    target_role_guess: 'Chief Executive Officer',
+    signal_summary: 'Audit notice posted for Beacon Holdings.',
+    why_now: 'A new public audit signal suggests active document pressure.',
+    why_this_company: 'Beacon Holdings has active watchlist signals and direct contact coverage.',
+    subject_line: 'Beacon Holdings audit activity',
+    email_body: 'Morgan Hale,\n\nWe noticed public audit activity involving Beacon Holdings and wanted to share how FactLedger helps teams respond quickly.\n\nWould a short conversation be useful?',
+    source_links: ['https://audit.example/beacon-holdings-notice'],
+    outreach_status: 'ready_to_draft',
+    qualification_reasons: ['meaningful_signal_present', 'direct_email_available'],
+    readiness_state: 'ready_to_draft',
+    draft_generated_at: '2026-03-28T09:05:00Z',
+  },
 } as const;
 
 const smithCompany = {
@@ -149,6 +170,25 @@ const smithCompany = {
   contact_confidence_level: 'low',
   reachability_score: 0,
   enrichment_state: 'partial',
+  outreach_record: {
+    company_id: 'smith-jones-llp',
+    company_name: 'Smith & Jones LLP',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    contact_type: 'none',
+    target_role_guess: 'Finance or Legal',
+    signal_summary: 'Document production ordered in active litigation.',
+    why_now: 'Public litigation activity suggests possible document burden.',
+    why_this_company: 'The company has active review-worthy signals but lacks a usable contact path.',
+    subject_line: '',
+    email_body: '',
+    source_links: ['https://court.example/document-production-order'],
+    outreach_status: 'not_ready',
+    qualification_reasons: ['missing_contact_method'],
+    readiness_state: 'not_ready',
+    draft_generated_at: '',
+  },
 } as const;
 
 beforeEach(() => {
@@ -282,6 +322,50 @@ test('needs review payload parses deterministically', async () => {
 
   expect(result[0].company_name).toBe('Beacon Holdings');
   expect(result[0].priority_score).toBe(96);
+});
+
+test('outreach queue payload parses deterministically', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      outreach_queue: [
+        {
+          company_id: 'beacon-holdings',
+          company_name: 'Beacon Holdings',
+          contact_name: 'Morgan Hale',
+          contact_email: 'morgan.hale@beaconholdings.example',
+          outreach_status: 'ready_to_draft',
+          readiness_state: 'ready_to_draft',
+        },
+      ],
+      error_code: null,
+    }),
+  });
+
+  const result = await getWatchlistOutreachQueue();
+
+  expect(result[0].company_name).toBe('Beacon Holdings');
+  expect(result[0].outreach_status).toBe('ready_to_draft');
+});
+
+test('outreach status update returns deterministic record', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      outreach_record: {
+        ...beaconCompany.outreach_record,
+        outreach_status: 'drafted',
+      },
+      error_code: null,
+    }),
+  });
+
+  const result = await updateWatchlistOutreachStatus('beacon-holdings', 'drafted');
+
+  expect(result.outreach_status).toBe('drafted');
+  expect(result.subject_line).toBe('Beacon Holdings audit activity');
 });
 
 test('filters apply deterministically to live company records', async () => {

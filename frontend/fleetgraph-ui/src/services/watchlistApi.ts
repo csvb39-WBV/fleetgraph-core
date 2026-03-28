@@ -8,6 +8,7 @@ export type WatchlistRefreshStatus = 'idle' | 'refreshing' | 'refresh_succeeded'
 export type WatchlistPriorityBand = 'HIGH' | 'MEDIUM' | 'LOW';
 export type ContactConfidenceLevel = 'high' | 'medium' | 'low';
 export type ContactType = 'direct_email' | 'general_email' | 'phone' | 'page' | 'pattern';
+export type WatchlistOutreachStatus = 'not_ready' | 'ready_to_draft' | 'drafted' | 'suppressed';
 
 export type WatchlistSeedCompany = {
   company_id: string;
@@ -65,6 +66,35 @@ export type WatchlistPhoneContact = {
   confidence: ContactConfidenceLevel;
 };
 
+export type WatchlistOutreachRecord = {
+  company_id: string;
+  company_name: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  contact_type: 'direct_email' | 'general_email' | 'phone' | 'none';
+  target_role_guess: string;
+  signal_summary: string;
+  why_now: string;
+  why_this_company: string;
+  subject_line: string;
+  email_body: string;
+  source_links: string[];
+  outreach_status: WatchlistOutreachStatus;
+  qualification_reasons: string[];
+  readiness_state: 'not_ready' | 'ready_to_draft';
+  draft_generated_at: string;
+};
+
+export type WatchlistOutreachQueueItem = {
+  company_id: string;
+  company_name: string;
+  contact_name: string;
+  contact_email: string;
+  outreach_status: WatchlistOutreachStatus;
+  readiness_state: 'not_ready' | 'ready_to_draft';
+};
+
 export type WatchlistCompanyRecord = WatchlistSeedCompany & {
   main_phone: string;
   direct_phones: WatchlistPhoneContact[];
@@ -86,6 +116,7 @@ export type WatchlistCompanyRecord = WatchlistSeedCompany & {
   enrichment_state: WatchlistEnrichmentState;
   delta_summary?: WatchlistDeltaSummary;
   priority_summary?: WatchlistPrioritySummary;
+  outreach_record?: WatchlistOutreachRecord;
 };
 
 export type WatchlistDeltaSummary = {
@@ -185,6 +216,18 @@ type WatchlistNeedsReviewResponse = {
   error_code?: string | null;
 };
 
+type WatchlistOutreachQueueResponse = {
+  ok?: boolean;
+  outreach_queue?: unknown;
+  error_code?: string | null;
+};
+
+type WatchlistOutreachStatusResponse = {
+  ok?: boolean;
+  outreach_record?: unknown;
+  error_code?: string | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -219,6 +262,10 @@ function isEnrichmentState(value: unknown): value is WatchlistEnrichmentState {
 
 function isPriorityBand(value: unknown): value is WatchlistPriorityBand {
   return value === 'HIGH' || value === 'MEDIUM' || value === 'LOW';
+}
+
+function isOutreachStatus(value: unknown): value is WatchlistOutreachStatus {
+  return value === 'not_ready' || value === 'ready_to_draft' || value === 'drafted' || value === 'suppressed';
 }
 
 function isNumber(value: unknown): value is number {
@@ -360,6 +407,11 @@ function cloneRecord(record: WatchlistCompanyRecord): WatchlistCompanyRecord {
       priority_reason_codes: [...record.priority_summary.priority_reason_codes],
       needs_review_reasons: [...record.priority_summary.needs_review_reasons],
     } : undefined,
+    outreach_record: record.outreach_record ? {
+      ...record.outreach_record,
+      source_links: [...record.outreach_record.source_links],
+      qualification_reasons: [...record.outreach_record.qualification_reasons],
+    } : undefined,
   };
 }
 
@@ -461,6 +513,7 @@ function parseCompanyRecord(value: unknown): WatchlistCompanyRecord {
     enrichment_state: value.enrichment_state,
     delta_summary: value.delta_summary === undefined ? undefined : parseDeltaSummary(value.delta_summary),
     priority_summary: value.priority_summary === undefined ? undefined : parsePrioritySummary(value.priority_summary),
+    outreach_record: value.outreach_record === undefined ? undefined : parseOutreachRecord(value.outreach_record),
   };
 }
 
@@ -590,6 +643,78 @@ function parseNeedsReviewItem(value: unknown): WatchlistNeedsReviewItem {
   };
 }
 
+function parseOutreachRecord(value: unknown): WatchlistOutreachRecord {
+  if (!isRecord(value)) {
+    throw new Error('Invalid outreach record');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || !isString(value.contact_name)
+    || !isString(value.contact_email)
+    || !isString(value.contact_phone)
+    || (value.contact_type !== 'direct_email' && value.contact_type !== 'general_email' && value.contact_type !== 'phone' && value.contact_type !== 'none')
+    || !isString(value.target_role_guess)
+    || !isString(value.signal_summary)
+    || !isString(value.why_now)
+    || !isString(value.why_this_company)
+    || !isString(value.subject_line)
+    || !isString(value.email_body)
+    || !isStringArray(value.source_links)
+    || !isOutreachStatus(value.outreach_status)
+    || !isStringArray(value.qualification_reasons)
+    || (value.readiness_state !== 'not_ready' && value.readiness_state !== 'ready_to_draft')
+    || !isString(value.draft_generated_at)
+  ) {
+    throw new Error('Invalid outreach record');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    contact_name: value.contact_name,
+    contact_email: value.contact_email,
+    contact_phone: value.contact_phone,
+    contact_type: value.contact_type,
+    target_role_guess: value.target_role_guess,
+    signal_summary: value.signal_summary,
+    why_now: value.why_now,
+    why_this_company: value.why_this_company,
+    subject_line: value.subject_line,
+    email_body: value.email_body,
+    source_links: [...value.source_links],
+    outreach_status: value.outreach_status,
+    qualification_reasons: [...value.qualification_reasons],
+    readiness_state: value.readiness_state,
+    draft_generated_at: value.draft_generated_at,
+  };
+}
+
+function parseOutreachQueueItem(value: unknown): WatchlistOutreachQueueItem {
+  if (!isRecord(value)) {
+    throw new Error('Invalid outreach queue item');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || !isString(value.contact_name)
+    || !isString(value.contact_email)
+    || !isOutreachStatus(value.outreach_status)
+    || (value.readiness_state !== 'not_ready' && value.readiness_state !== 'ready_to_draft')
+  ) {
+    throw new Error('Invalid outreach queue item');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    contact_name: value.contact_name,
+    contact_email: value.contact_email,
+    outreach_status: value.outreach_status,
+    readiness_state: value.readiness_state,
+  };
+}
+
 async function requestJson(path: string, init?: RequestInit): Promise<unknown> {
   const response = await fetch(`${API_BASE}${path}`, init);
   const payload = await response.json().catch(() => null);
@@ -700,4 +825,35 @@ export async function getWatchlistNeedsReview(): Promise<WatchlistNeedsReviewIte
   }
 
   return response.needs_review.map((item) => parseNeedsReviewItem(item));
+}
+
+export async function getWatchlistOutreachQueue(): Promise<WatchlistOutreachQueueItem[]> {
+  const payload = await requestJson('/watchlist/outreach-queue');
+  const response = payload as WatchlistOutreachQueueResponse;
+
+  if (response.ok !== true || !Array.isArray(response.outreach_queue)) {
+    throw new Error(response.error_code ?? 'Invalid outreach queue payload');
+  }
+
+  return response.outreach_queue.map((item) => parseOutreachQueueItem(item));
+}
+
+export async function updateWatchlistOutreachStatus(
+  companyId: string,
+  outreachStatus: Extract<WatchlistOutreachStatus, 'drafted' | 'suppressed'>,
+): Promise<WatchlistOutreachRecord> {
+  const payload = await requestJson(`/watchlist/companies/${encodeURIComponent(companyId)}/outreach-status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ outreach_status: outreachStatus }),
+  });
+  const response = payload as WatchlistOutreachStatusResponse;
+
+  if (response.ok !== true) {
+    throw new Error(response.error_code ?? 'Watchlist outreach status update failed');
+  }
+
+  return parseOutreachRecord(response.outreach_record);
 }

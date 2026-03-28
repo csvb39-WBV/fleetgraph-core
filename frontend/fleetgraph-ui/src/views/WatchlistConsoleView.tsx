@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ChangedCompaniesPanel from '../components/watchlist/ChangedCompaniesPanel';
 import CompanyDetailConsole from '../components/watchlist/CompanyDetailConsole';
 import NeedsReviewPanel from '../components/watchlist/NeedsReviewPanel';
+import OutreachQueuePanel from '../components/watchlist/OutreachQueuePanel';
 import TopTargetsPanel from '../components/watchlist/TopTargetsPanel';
 import WatchlistCompanyTable from '../components/watchlist/WatchlistCompanyTable';
 import WatchlistFilters from '../components/watchlist/WatchlistFilters';
@@ -14,12 +15,15 @@ import {
   getWatchlistCompanies,
   getWatchlistCompanyDetail,
   getWatchlistNeedsReview,
+  getWatchlistOutreachQueue,
   getWatchlistTopTargets,
   refreshWatchlistCompany,
+  updateWatchlistOutreachStatus,
   type WatchlistChangedCompany,
   type WatchlistCompanyRecord,
   type WatchlistFilterState,
   type WatchlistNeedsReviewItem,
+  type WatchlistOutreachQueueItem,
   type WatchlistRefreshStatus,
   type WatchlistTopTarget,
 } from '../services/watchlistApi';
@@ -47,17 +51,20 @@ export function WatchlistConsoleView(): JSX.Element {
   const [changedCompanies, setChangedCompanies] = useState<WatchlistChangedCompany[]>([]);
   const [topTargets, setTopTargets] = useState<WatchlistTopTarget[]>([]);
   const [needsReview, setNeedsReview] = useState<WatchlistNeedsReviewItem[]>([]);
+  const [outreachQueue, setOutreachQueue] = useState<WatchlistOutreachQueueItem[]>([]);
 
   async function loadAttentionSurfaces(): Promise<void> {
-    const [changedResult, topTargetsResult, needsReviewResult] = await Promise.allSettled([
+    const [changedResult, topTargetsResult, needsReviewResult, outreachQueueResult] = await Promise.allSettled([
       getWatchlistChangedCompanies(),
       getWatchlistTopTargets(),
       getWatchlistNeedsReview(),
+      getWatchlistOutreachQueue(),
     ]);
 
     setChangedCompanies(changedResult.status === 'fulfilled' ? changedResult.value : []);
     setTopTargets(topTargetsResult.status === 'fulfilled' ? topTargetsResult.value : []);
     setNeedsReview(needsReviewResult.status === 'fulfilled' ? needsReviewResult.value : []);
+    setOutreachQueue(outreachQueueResult.status === 'fulfilled' ? outreachQueueResult.value : []);
   }
 
   useEffect(() => {
@@ -174,6 +181,27 @@ export function WatchlistConsoleView(): JSX.Element {
     }
   }
 
+  async function handleUpdateOutreachStatus(nextStatus: 'drafted' | 'suppressed'): Promise<void> {
+    if (!selectedCompanyId) {
+      return;
+    }
+
+    try {
+      const outreachRecord = await updateWatchlistOutreachStatus(selectedCompanyId, nextStatus);
+      setCompanies((currentCompanies) => currentCompanies.map((company) => (
+        company.company_id === selectedCompanyId ? { ...company, outreach_record: outreachRecord } : company
+      )));
+      setSelectedCompanyDetail((currentDetail) => (
+        currentDetail && currentDetail.company_id === selectedCompanyId
+          ? { ...currentDetail, outreach_record: outreachRecord }
+          : currentDetail
+      ));
+      await loadAttentionSurfaces();
+    } catch (error) {
+      setRefreshErrorMessage(error instanceof Error ? error.message : 'Watchlist outreach status update failed');
+    }
+  }
+
   if (loadErrorMessage) {
     return (
       <section aria-label="Watchlist Console View" style={{ display: 'grid', gap: '16px' }}>
@@ -194,6 +222,7 @@ export function WatchlistConsoleView(): JSX.Element {
         <ChangedCompaniesPanel changedCompanies={changedCompanies} onSelectCompany={setSelectedCompanyId} />
         <NeedsReviewPanel needsReview={needsReview} onSelectCompany={setSelectedCompanyId} />
       </section>
+      <OutreachQueuePanel items={outreachQueue} onSelectCompany={setSelectedCompanyId} />
       <WatchlistFilters
         filters={filters}
         categories={categories}
@@ -219,6 +248,8 @@ export function WatchlistConsoleView(): JSX.Element {
             refreshStatus={refreshStatus}
             refreshErrorMessage={refreshErrorMessage}
             onRefresh={handleRefreshSelectedCompany}
+            onMarkDrafted={() => void handleUpdateOutreachStatus('drafted')}
+            onMarkSuppressed={() => void handleUpdateOutreachStatus('suppressed')}
           />
         </section>
       )}

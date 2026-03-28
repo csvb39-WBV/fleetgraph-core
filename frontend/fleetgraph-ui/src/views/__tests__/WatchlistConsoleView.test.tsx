@@ -117,6 +117,25 @@ const beaconCompany = {
     needs_review: true,
     needs_review_reasons: ['changed_since_last_run'],
   },
+  outreach_record: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    contact_name: 'Morgan Hale',
+    contact_email: 'morgan.hale@beaconholdings.example',
+    contact_phone: '312-555-0101',
+    contact_type: 'direct_email' as const,
+    target_role_guess: 'Chief Executive Officer',
+    signal_summary: 'Audit notice posted for Beacon Holdings.',
+    why_now: 'A new public audit signal suggests active document pressure.',
+    why_this_company: 'Beacon Holdings has active watchlist signals and direct contact coverage.',
+    subject_line: 'Beacon Holdings audit activity',
+    email_body: 'Morgan Hale,\n\nWe noticed public audit activity involving Beacon Holdings and wanted to share how FactLedger helps teams respond quickly.\n\nWould a short conversation be useful?',
+    source_links: ['https://audit.example/beacon-holdings-notice'],
+    outreach_status: 'ready_to_draft' as const,
+    qualification_reasons: ['meaningful_signal_present', 'direct_email_available'],
+    readiness_state: 'ready_to_draft' as const,
+    draft_generated_at: '2026-03-28T09:05:00Z',
+  },
 };
 
 const smithCompany = {
@@ -198,6 +217,25 @@ const smithCompany = {
     needs_review: true,
     needs_review_reasons: ['partial_enrichment_with_active_signals'],
   },
+  outreach_record: {
+    company_id: 'smith-jones-llp',
+    company_name: 'Smith & Jones LLP',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    contact_type: 'none' as const,
+    target_role_guess: 'Finance or Legal',
+    signal_summary: 'Document production ordered in active litigation.',
+    why_now: 'Public litigation activity suggests possible document burden.',
+    why_this_company: 'The company has active review-worthy signals but lacks a usable contact path.',
+    subject_line: '',
+    email_body: '',
+    source_links: ['https://court.example/document-production-order'],
+    outreach_status: 'not_ready' as const,
+    qualification_reasons: ['missing_contact_method'],
+    readiness_state: 'not_ready' as const,
+    draft_generated_at: '',
+  },
 };
 
 const atlasCompany = {
@@ -260,6 +298,25 @@ const atlasCompany = {
     needs_review: true,
     needs_review_reasons: ['seed_only_high_priority_no_recent_refresh'],
   },
+  outreach_record: {
+    company_id: 'atlas-services-group',
+    company_name: 'Atlas Services Group',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    contact_type: 'none' as const,
+    target_role_guess: 'Operations',
+    signal_summary: '',
+    why_now: '',
+    why_this_company: 'This company is not yet ready for outreach drafting.',
+    subject_line: '',
+    email_body: '',
+    source_links: [],
+    outreach_status: 'suppressed' as const,
+    qualification_reasons: ['suppressed_watchlist_company'],
+    readiness_state: 'not_ready' as const,
+    draft_generated_at: '',
+  },
 };
 
 const mockApi = vi.hoisted(() => ({
@@ -270,6 +327,8 @@ const mockApi = vi.hoisted(() => ({
   getWatchlistChangedCompanies: vi.fn(),
   getWatchlistTopTargets: vi.fn(),
   getWatchlistNeedsReview: vi.fn(),
+  getWatchlistOutreachQueue: vi.fn(),
+  updateWatchlistOutreachStatus: vi.fn(),
 }));
 
 vi.mock('../../services/watchlistApi', async () => {
@@ -283,6 +342,8 @@ vi.mock('../../services/watchlistApi', async () => {
     getWatchlistChangedCompanies: mockApi.getWatchlistChangedCompanies,
     getWatchlistTopTargets: mockApi.getWatchlistTopTargets,
     getWatchlistNeedsReview: mockApi.getWatchlistNeedsReview,
+    getWatchlistOutreachQueue: mockApi.getWatchlistOutreachQueue,
+    updateWatchlistOutreachStatus: mockApi.updateWatchlistOutreachStatus,
   };
 });
 
@@ -343,6 +404,11 @@ async function clickRefresh(container: HTMLDivElement): Promise<void> {
 }
 
 beforeEach(() => {
+  vi.stubGlobal('navigator', {
+    clipboard: {
+      writeText: vi.fn().mockResolvedValue(undefined),
+    },
+  });
   mockApi.getWatchlistCompanies.mockReset();
   mockApi.getWatchlistCompanyDetail.mockReset();
   mockApi.refreshWatchlistCompany.mockReset();
@@ -350,6 +416,8 @@ beforeEach(() => {
   mockApi.getWatchlistChangedCompanies.mockReset();
   mockApi.getWatchlistTopTargets.mockReset();
   mockApi.getWatchlistNeedsReview.mockReset();
+  mockApi.getWatchlistOutreachQueue.mockReset();
+  mockApi.updateWatchlistOutreachStatus.mockReset();
 
   mockApi.getWatchlistCompanies.mockResolvedValue([beaconCompany, smithCompany, atlasCompany]);
   mockApi.getWatchlistCompanyDetail.mockImplementation(async (companyId: string) => {
@@ -410,6 +478,28 @@ beforeEach(() => {
       last_enriched_at: '',
     },
   ]);
+  mockApi.getWatchlistOutreachQueue.mockResolvedValue([
+    {
+      company_id: 'beacon-holdings',
+      company_name: 'Beacon Holdings',
+      contact_name: 'Morgan Hale',
+      contact_email: 'morgan.hale@beaconholdings.example',
+      outreach_status: 'ready_to_draft',
+      readiness_state: 'ready_to_draft',
+    },
+    {
+      company_id: 'smith-jones-llp',
+      company_name: 'Smith & Jones LLP',
+      contact_name: '',
+      contact_email: '',
+      outreach_status: 'not_ready',
+      readiness_state: 'not_ready',
+    },
+  ]);
+  mockApi.updateWatchlistOutreachStatus.mockImplementation(async (_companyId: string, nextStatus: 'drafted' | 'suppressed') => ({
+    ...beaconCompany.outreach_record,
+    outreach_status: nextStatus,
+  }));
   mockApi.filterWatchlistCompanies.mockImplementation((companies, filters) => (
     companies.filter((company: typeof beaconCompany) => {
       if (filters.category && company.category !== filters.category) {
@@ -433,16 +523,19 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   document.body.innerHTML = '';
 });
 
-test('live watchlist data loads into the console with reachability surfaces', async () => {
+test('live watchlist data loads into the console with outreach queue and reachability surfaces', async () => {
   const { container, root } = await renderView();
 
   const html = container.innerHTML;
   expect(html).toContain('Top Targets');
   expect(html).toContain('Changed Since Last Run');
   expect(html).toContain('Needs Review');
+  expect(html).toContain('Outreach Queue');
+  expect(html).toContain('READY TO DRAFT');
   expect(html).toContain('HIGH REACHABILITY');
   expect(html).toContain('Beacon Holdings');
   expect(mockApi.getWatchlistCompanies).toHaveBeenCalledTimes(1);
@@ -483,6 +576,77 @@ test('selected company detail binds pattern-only fallback cleanly', async () => 
   expect(html).toContain('No direct contact - pattern only');
   expect(html).toContain('first_initiallast@smithjonesllp.example');
   expect(html).toContain('LOW REACHABILITY');
+
+  root.unmount();
+});
+
+test('outreach draft panel renders deterministically for ready company', async () => {
+  const { container, root } = await renderView();
+
+  const html = container.innerHTML;
+  expect(html).toContain('Outreach Draft');
+  expect(html).toContain('Copy Subject');
+  expect(html).toContain('Copy Body');
+  expect(html).toContain('Copy Full Draft');
+  expect(html).toContain('Beacon Holdings audit activity');
+  expect(html).toContain('A new public audit signal suggests active document pressure.');
+  expect(html).toContain('meaningful_signal_present');
+  expect(html).not.toContain('Send Email');
+
+  root.unmount();
+});
+
+test('not ready and suppressed outreach states render correctly', async () => {
+  const { container, root } = await renderView();
+
+  await clickCompanyRow(container, 'Smith & Jones LLP');
+  expect(container.innerHTML).toContain('NOT READY');
+  expect(container.innerHTML).toContain('missing_contact_method');
+
+  await clickCompanyRow(container, 'Atlas Services Group');
+  expect(container.innerHTML).toContain('SUPPRESSED');
+  expect(container.innerHTML).toContain('suppressed_watchlist_company');
+
+  root.unmount();
+});
+
+test('outreach status controls update deterministically', async () => {
+  const { container, root } = await renderView();
+
+  const draftedButton = Array.from(container.querySelectorAll('button')).find((item) => item.textContent === 'Mark Drafted') as HTMLButtonElement | undefined;
+  if (!draftedButton) {
+    throw new Error('Missing Mark Drafted button');
+  }
+
+  await act(async () => {
+    draftedButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flush();
+  });
+
+  expect(mockApi.updateWatchlistOutreachStatus).toHaveBeenCalledWith('beacon-holdings', 'drafted');
+  expect(container.innerHTML).toContain('DRAFTED');
+
+  root.unmount();
+});
+
+test('copy-ready subject and body surfaces appear correctly', async () => {
+  const { container, root } = await renderView();
+
+  const copySubjectButton = Array.from(container.querySelectorAll('button')).find((item) => item.textContent === 'Copy Subject') as HTMLButtonElement | undefined;
+  const copyBodyButton = Array.from(container.querySelectorAll('button')).find((item) => item.textContent === 'Copy Body') as HTMLButtonElement | undefined;
+  if (!copySubjectButton || !copyBodyButton) {
+    throw new Error('Missing copy buttons');
+  }
+
+  await act(async () => {
+    copySubjectButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    copyBodyButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flush();
+  });
+
+  const writeText = (navigator.clipboard.writeText as unknown as ReturnType<typeof vi.fn>);
+  expect(writeText).toHaveBeenCalledWith('Beacon Holdings audit activity');
+  expect(writeText).toHaveBeenCalledWith(beaconCompany.outreach_record.email_body);
 
   root.unmount();
 });
