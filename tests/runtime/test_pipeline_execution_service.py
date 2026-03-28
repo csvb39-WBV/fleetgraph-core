@@ -1,9 +1,10 @@
 ﻿from __future__ import annotations
 
 import copy
-import json
 import pathlib
 import sys
+
+import pytest
 
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -13,6 +14,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 
+import fleetgraph.runtime.pipeline_execution_service as pipeline_execution_service
 from fleetgraph.runtime.pipeline_execution_service import execute_signal_pipeline
 
 
@@ -56,6 +58,20 @@ class FailureTransport:
         raise RuntimeError("transport_failed")
 
 
+class EmptyResultsTransport:
+    def __call__(self, query: str, result_limit: int, timeout_seconds: float) -> list[dict[str, str]]:
+        return []
+
+
+class LowSignalTransport:
+    def __call__(self, query: str, result_limit: int, timeout_seconds: float) -> list[dict[str, str]]:
+        return [{
+            "title": "Civic Contractors routine bulletin posted",
+            "snippet": "2026-03-27 routine notice posted.",
+            "url": "https://example.com/civic-review",
+        }]
+
+
 def test_runtime_execution_success_path(tmp_path: pathlib.Path) -> None:
     result = execute_signal_pipeline(
         _runtime_config(tmp_path),
@@ -83,6 +99,61 @@ def test_runtime_execution_failure_path(tmp_path: pathlib.Path) -> None:
     assert result["manifest"]["status"] == "failed"
     assert result["manifest"]["error_code"] == "transport_failed"
     assert pathlib.Path(result["manifest_path"]).exists() is True
+
+
+def test_zero_deduplicated_signals_detected(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pipeline_execution_service, "deduplicate_signals", lambda signals: [])
+
+    result = execute_signal_pipeline(
+        _runtime_config(tmp_path),
+        transport=SuccessTransport(),
+        current_time=100,
+    )
+
+    assert result["ok"] is False
+    assert result["error_code"] == "no_signals_detected"
+    assert result["manifest"]["status"] == "failed"
+    assert result["manifest"]["error_code"] == "no_signals_detected"
+
+
+def test_zero_primary_signals_detected(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        pipeline_execution_service,
+        "get_ordered_query_definitions",
+        lambda: [
+            {
+                "query_id": "government_weak",
+                "signal_type": "government",
+                "query": "routine bulletin contractor",
+                "priority_weight": 1,
+                "max_results": 1,
+            }
+        ],
+    )
+
+    result = execute_signal_pipeline(
+        _runtime_config(tmp_path, max_queries_per_run=1, max_results_per_query=1),
+        transport=LowSignalTransport(),
+        current_time=100,
+    )
+
+    assert result["ok"] is False
+    assert result["error_code"] == "no_primary_signals_detected"
+    assert result["manifest"]["status"] == "failed"
+    assert result["manifest"]["error_code"] == "no_primary_signals_detected"
+
+
+def test_connector_empty_manifest_failure_output(tmp_path: pathlib.Path) -> None:
+    result = execute_signal_pipeline(
+        _runtime_config(tmp_path),
+        transport=EmptyResultsTransport(),
+        current_time=100,
+    )
+
+    assert result["ok"] is False
+    assert result["error_code"] == "no_results_returned"
+    assert result["manifest"]["status"] == "failed"
+    assert result["manifest"]["error_code"] == "no_results_returned"
 
 
 def test_runtime_execution_deterministic_manifest_output(tmp_path: pathlib.Path) -> None:

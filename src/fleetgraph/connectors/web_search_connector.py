@@ -50,7 +50,64 @@ class WebSearchConnector:
         if not isinstance(raw_results, list):
             raise WebSearchConnectorError("invalid_results_payload")
         normalized_results = [cls._normalize_result_item(result_item) for result_item in raw_results]
-        return normalized_results[:result_limit]
+        normalized_results = normalized_results[:result_limit]
+        if len(normalized_results) == 0:
+            raise WebSearchConnectorError("no_results_returned")
+        return normalized_results
+
+    @classmethod
+    def _extract_live_results(cls, payload: object) -> list[dict[str, str]]:
+        if not isinstance(payload, dict):
+            raise WebSearchConnectorError("unsupported_live_payload")
+
+        raw_results: list[dict[str, str]] = []
+        for item in payload.get("Results", []):
+            if not isinstance(item, dict):
+                continue
+            text = item.get("Text") or item.get("AbstractText")
+            item_url = item.get("FirstURL") or item.get("Url")
+            title = item.get("Heading") or (text.split(" - ", 1)[0] if isinstance(text, str) else None)
+            if isinstance(title, str) and isinstance(text, str) and isinstance(item_url, str):
+                raw_results.append(
+                    {
+                        "title": title,
+                        "snippet": text,
+                        "url": item_url,
+                    }
+                )
+
+        for item in payload.get("RelatedTopics", []):
+            if not isinstance(item, dict):
+                continue
+            if "Topics" in item and isinstance(item["Topics"], list):
+                for nested_item in item["Topics"]:
+                    if not isinstance(nested_item, dict):
+                        continue
+                    text = nested_item.get("Text")
+                    item_url = nested_item.get("FirstURL")
+                    if isinstance(text, str) and isinstance(item_url, str):
+                        raw_results.append(
+                            {
+                                "title": text.split(" - ", 1)[0],
+                                "snippet": text,
+                                "url": item_url,
+                            }
+                        )
+                continue
+            text = item.get("Text") or item.get("AbstractText")
+            item_url = item.get("FirstURL") or item.get("Url")
+            if isinstance(text, str) and isinstance(item_url, str):
+                raw_results.append(
+                    {
+                        "title": text.split(" - ", 1)[0],
+                        "snippet": text,
+                        "url": item_url,
+                    }
+                )
+
+        if len(raw_results) == 0:
+            raise WebSearchConnectorError("no_results_returned")
+        return raw_results
 
     def _default_transport(self, query: str, result_limit: int) -> list[dict[str, str]]:
         endpoint = "https://duckduckgo.com/?q={query}&format=json&pretty=0".format(
@@ -66,22 +123,7 @@ class WebSearchConnector:
                 payload = json.loads(response.read().decode("utf-8"))
         except (error.URLError, TimeoutError, json.JSONDecodeError) as exc:
             raise WebSearchConnectorError("connector_request_failed") from exc
-        related_topics = payload.get("RelatedTopics", [])
-        raw_results: list[dict[str, str]] = []
-        for item in related_topics:
-            if not isinstance(item, dict):
-                continue
-            text = item.get("Text")
-            first_url = item.get("FirstURL")
-            if not isinstance(text, str) or not isinstance(first_url, str):
-                continue
-            raw_results.append(
-                {
-                    "title": text.split(" - ", 1)[0],
-                    "snippet": text,
-                    "url": first_url,
-                }
-            )
+        raw_results = self._extract_live_results(payload)
         return self.normalize_results(raw_results, result_limit=result_limit)
 
     def search(self, query: str, *, result_limit: int) -> list[dict[str, str]]:
@@ -100,5 +142,7 @@ class WebSearchConnector:
                     return self.normalize_results(raw_results, result_limit=result_limit)
                 return self._default_transport(query, result_limit)
             except WebSearchConnectorError as exc:
+                if str(exc) == "no_results_returned":
+                    raise
                 last_error = exc
         raise WebSearchConnectorError("connector_request_failed") from last_error

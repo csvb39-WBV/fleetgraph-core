@@ -43,3 +43,10 @@ def test_connector_timeout_retry_failure_behavior() -> None:
         connector.search("acme lawsuit", result_limit=2)
 
     assert attempts["count"] == 3
+
+
+def test_connector_empty_live_result_handling() -> None:
+    connector = WebSearchConnector(transport=lambda query, result_limit, timeout_seconds: [])
+
+    with pytest.raises(WebSearchConnectorError, match="no_results_returned"):
+        connector.search("acme lawsuit", result_limit=2)

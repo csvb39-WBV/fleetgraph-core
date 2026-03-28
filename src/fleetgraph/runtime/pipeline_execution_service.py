@@ -63,8 +63,12 @@ def execute_signal_pipeline(
                 )
 
         deduplicated_signals = deduplicate_signals(raw_signals)
+        if len(deduplicated_signals) == 0:
+            raise ValueError("no_signals_detected")
         scored_signals = score_signals(deduplicated_signals)
         filtered_signals = filter_signals(scored_signals)
+        if len(filtered_signals["primary_signals"]) == 0:
+            raise ValueError("no_primary_signals_detected")
         primary_signals = format_signals(filtered_signals["primary_signals"])
         csv_path = export_signals_to_csv(
             primary_signals,
