@@ -34,6 +34,10 @@ function priorityChip(priority: 'HIGH' | 'MEDIUM'): JSX.Element {
   );
 }
 
+function signalTypeLabel(signalType: TodaySignal['signal_type']): string {
+  return signalType.split('_').join(' ');
+}
+
 export function SignalTable({ signals, selectedCompany, onSelectCompany }: Props): JSX.Element {
   return (
     <section aria-label="Signal Review Table">
@@ -61,8 +65,8 @@ export function SignalTable({ signals, selectedCompany, onSelectCompany }: Props
                   borderTop: '1px solid #e2e8f0',
                 }}
               >
-                <td style={{ padding: '14px', fontWeight: 700 }}>{signal.company}</td>
-                <td style={{ padding: '14px', textTransform: 'capitalize' }}>{signal.signal_type.replace('_', ' ')}</td>
+                <td style={{ padding: '14px', fontWeight: 700, whiteSpace: 'nowrap' }}>{signal.company}</td>
+                <td style={{ padding: '14px', textTransform: 'capitalize' }}>{signalTypeLabel(signal.signal_type)}</td>
                 <td style={{ padding: '14px', color: '#334155' }}>{signal.event_summary}</td>
                 <td style={{ padding: '14px' }}>{signal.date_detected}</td>
                 <td style={{ padding: '14px' }}>{priorityChip(signal.priority)}</td>

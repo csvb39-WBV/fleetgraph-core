@@ -86,6 +86,8 @@ def _load_signals(csv_path: Path) -> list[dict[str, object]] | None:
     for row in rows:
         if tuple(row.keys()) != _REQUIRED_SIGNAL_KEYS:
             return None
+        if not _is_non_empty_string(row["company"]):
+            return None
         confidence_score_text = row["confidence_score"]
         if not confidence_score_text.isdigit():
             return None

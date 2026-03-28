@@ -11,6 +11,55 @@ _REQUIRED_SIGNAL_KEYS = {
     "priority",
     "raw_text",
 }
+_STRONG_LITIGATION_TERMS = (
+    "lawsuit",
+    "litigation",
+    "claim",
+)
+_STRONG_ENTITY_TERMS = (
+    "contractor",
+    "subcontractor",
+    "developer",
+    "developer group",
+    "construction management firm",
+    "epc contractor",
+    "specialty contractor",
+    "electrical contractor",
+    "mechanical contractor",
+    "plumbing contractor",
+    "roofing contractor",
+    "glazing contractor",
+    "civil contractor",
+    "utility contractor",
+    "infrastructure contractor",
+    "public works contractor",
+    "company",
+    "corporation",
+    "firm",
+    "group",
+    "holdings",
+    "services",
+    "partners",
+    "associates",
+)
+_LEGAL_ENTITY_TERMS = (
+    "law firm",
+    "counsel",
+    "outside counsel",
+    "legal department",
+    "llp",
+    "pllc",
+    "pc",
+    "p.c.",
+)
+_AUDIT_ENTITY_TERMS = _STRONG_ENTITY_TERMS + _LEGAL_ENTITY_TERMS
+_WEAK_PRESSURE_TERMS = (
+    "dispute",
+    "hearing",
+    "review",
+    "compliance",
+    "legal",
+)
 
 
 def _is_non_empty_string(value: object) -> bool:
@@ -50,23 +99,37 @@ def _score_signal(signal: dict[str, object]) -> int:
     raw_text = str(signal["raw_text"]).strip().lower()
     combined_text = " ".join((signal_type, event_summary, raw_text))
 
-    if "mechanics lien" in combined_text:
+    if "mechanics lien" in combined_text and _contains_any(combined_text, _STRONG_ENTITY_TERMS):
         return 5
-    if _contains_any(combined_text, ("lawsuit", "litigation")) and _contains_any(
-        combined_text,
-        ("contractor", "subcontractor", "builder", "construction"),
-    ):
+    if _contains_any(combined_text, _STRONG_LITIGATION_TERMS) and _contains_any(combined_text, _STRONG_ENTITY_TERMS):
         return 5
-    if "audit" in combined_text:
+    if "subpoena" in combined_text and _contains_any(combined_text, _LEGAL_ENTITY_TERMS + ("company",)):
+        return 5
+    if "document production" in combined_text and _contains_any(combined_text, ("litigation", "counsel", "law firm")):
+        return 5
+    if "ediscovery" in combined_text and _contains_any(combined_text, ("law firm", "counsel", "litigation")):
+        return 5
+    if "forensic review" in combined_text and _contains_any(combined_text, ("litigation", "counsel", "investigation")):
+        return 5
+
+    if "audit" in combined_text and _contains_any(combined_text, _AUDIT_ENTITY_TERMS):
         return 4
-    if "delay" in combined_text and _contains_any(
+    if "internal investigation" in combined_text and _contains_any(combined_text, ("company", "counsel", "legal")):
+        return 4
+    if _contains_any(combined_text, ("regulatory inquiry", "regulatory investigation")) and _contains_any(
         combined_text,
-        ("project", "construction", "contractor", "dispute"),
+        ("company", "counsel", "law firm"),
     ):
         return 4
-    if "dispute" in combined_text:
+    if _contains_any(combined_text, ("project delay", "delay", "dispute")) and _contains_any(
+        combined_text,
+        ("contractor", "developer", "company", "group"),
+    ):
+        return 4
+
+    if _contains_any(combined_text, ("legal", "counsel", "investigation", "subpoena", "document production", "compliance", "dispute")):
         return 3
-    if _contains_any(combined_text, ("investigation", "review", "hearing")):
+    if _contains_any(combined_text, _WEAK_PRESSURE_TERMS):
         return 2
     return 1
 

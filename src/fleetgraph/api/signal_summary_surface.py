@@ -68,7 +68,7 @@ def build_signal_summary(signals: list[dict[str, object]]) -> dict[str, object]:
         signal_type_counts[str(signal["signal_type"])] += 1
         priority_counts[str(signal["priority"])] += 1
 
-    top_companies = sorted({str(signal["company"]) for signal in validated_signals})
+    top_companies = sorted({str(signal["company"]).strip() for signal in validated_signals})
 
     return {
         "count_by_signal_type": signal_type_counts,

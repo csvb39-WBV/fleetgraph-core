@@ -66,6 +66,24 @@ def test_summary_correctness() -> None:
     }
 
 
+def test_top_companies_support_broader_entity_names() -> None:
+    result = build_signal_summary(
+        [
+            _signal("Smith & Jones LLP", "litigation", "HIGH", 5),
+            _signal("Beacon Holdings", "audit", "HIGH", 4),
+            _signal("Atlas Services Group", "government", "MEDIUM", 3),
+            _signal("Gray Counsel PLLC", "litigation", "HIGH", 5),
+        ]
+    )
+
+    assert result["top_companies"] == [
+        "Atlas Services Group",
+        "Beacon Holdings",
+        "Gray Counsel PLLC",
+        "Smith & Jones LLP",
+    ]
+
+
 def test_input_validation() -> None:
     with pytest.raises(ValueError):
         build_signal_summary([])

@@ -6,25 +6,46 @@ type Props = {
   signal: TodaySignal | null;
 };
 
+function combinedText(signal: TodaySignal | null): string {
+  if (!signal) {
+    return '';
+  }
+  return `${signal.signal_type} ${signal.event_summary} ${signal.raw_text}`.toLowerCase();
+}
+
 function whyThisMatters(signal: TodaySignal | null): string {
   if (!signal) {
-    return 'Select a signal to review its sales implications.';
+    return 'Select a signal to review its operational implications.';
+  }
+
+  const text = combinedText(signal);
+
+  if (text.includes('subpoena') || text.includes('document production') || text.includes('ediscovery')) {
+    return 'Subpoena and document-production activity can trigger urgent preservation, collection, and review workloads.';
+  }
+  if (text.includes('investigation') || text.includes('forensic review') || text.includes('regulatory inquiry')) {
+    return 'Investigations often create fast-moving document review demands, privilege handling, and cross-team coordination pressure.';
   }
   if (signal.signal_type === 'litigation') {
-    return 'Litigation can indicate active disruption, urgent vendor pain, and a short sales window.';
+    return 'Litigation can indicate active legal pressure, stakeholder escalation, and immediate evidence-management needs.';
   }
   if (signal.signal_type === 'audit') {
     return 'Audit activity often signals compliance pressure, process scrutiny, and leadership attention.';
   }
   if (signal.signal_type === 'project_distress') {
-    return 'Project distress can reveal schedule risk, document sprawl, and immediate coordination gaps.';
+    return 'Project distress can reveal schedule risk, coordination gaps, and rising documentation burdens across counterparties.';
   }
-  return 'Government activity can surface contract movement, oversight pressure, and timing-sensitive follow-up.';
+  return 'Government activity can surface oversight pressure, contract movement, and timing-sensitive follow-up.';
 }
 
 function estimatedDocumentVolume(signal: TodaySignal | null): string {
   if (!signal) {
     return 'Unknown';
+  }
+
+  const text = combinedText(signal);
+  if (text.includes('subpoena') || text.includes('document production') || text.includes('ediscovery') || text.includes('forensic review')) {
+    return 'High';
   }
   if (signal.priority === 'HIGH') {
     return 'Medium to High';
@@ -36,10 +57,18 @@ function factLedgerFit(signal: TodaySignal | null): string {
   if (!signal) {
     return 'Awaiting signal selection';
   }
+
+  const text = combinedText(signal);
+  if (text.includes('subpoena') || text.includes('document production') || text.includes('ediscovery')) {
+    return 'Strong fit for collection tracking, review coordination, privilege-sensitive chronology, and production readiness.';
+  }
+  if (text.includes('investigation') || text.includes('forensic review') || text.includes('regulatory inquiry')) {
+    return 'Strong fit for internal review workflows, evidence tracking, and cross-functional issue management.';
+  }
   if (signal.signal_type === 'audit' || signal.signal_type === 'litigation') {
     return 'Strong fit for document chronology, evidentiary tracing, and stakeholder review.';
   }
-  return 'Strong fit for project-level relationship mapping and issue handoff tracking.';
+  return 'Strong fit for relationship mapping, issue escalation tracking, and operational handoff visibility.';
 }
 
 export function SignalDetailPanel({ signal }: Props): JSX.Element {

@@ -78,9 +78,9 @@ export function FleetGraphSignalsDashboard(): JSX.Element {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
             <div>
               <div style={{ fontSize: '13px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#93c5fd' }}>FleetGraph Daily Signals</div>
-              <h1 style={{ margin: '8px 0 0', fontSize: '34px' }}>Top Signals Ready for Sales Review</h1>
+              <h1 style={{ margin: '8px 0 0', fontSize: '34px' }}>Top Signals Ready for Operator Review</h1>
               <p style={{ margin: '10px 0 0', maxWidth: '760px', color: '#cbd5e1' }}>
-                Today&apos;s highest-confidence public-source signals, formatted for fast operator review and direct action.
+                Today&apos;s highest-confidence public-source litigation, compliance, government, and project-risk signals, formatted for rapid review and direct action.
               </p>
             </div>
             <div style={{ minWidth: '220px', display: 'grid', gap: '8px' }}>

@@ -35,27 +35,27 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
         writer.writeheader()
         writer.writerow(
             {
-                "company": "Atlas Build Co",
+                "company": "Smith & Jones LLP",
                 "signal_type": "litigation",
-                "event_summary": "Lawsuit filed",
+                "event_summary": "Document production ordered",
                 "source": "court.example",
                 "date_detected": "2026-03-27",
                 "confidence_score": 5,
                 "priority": "HIGH",
-                "raw_text": "Construction contractor lawsuit filed.",
+                "raw_text": "Document production ordered for outside counsel Smith & Jones LLP.",
                 "recommended_action": "CALL NOW",
             }
         )
         writer.writerow(
             {
-                "company": "Beacon Masonry",
+                "company": "Beacon Holdings",
                 "signal_type": "audit",
                 "event_summary": "Audit notice posted",
                 "source": "audit.example",
                 "date_detected": "2026-03-27",
                 "confidence_score": 4,
                 "priority": "HIGH",
-                "raw_text": "Audit notice posted.",
+                "raw_text": "Audit notice posted for Beacon Holdings.",
                 "recommended_action": "CALL NOW",
             }
         )
@@ -74,7 +74,7 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
         json.dump(manifest, handle, indent=2, sort_keys=True)
 
 
-def test_api_response_validation(tmp_path: pathlib.Path) -> None:
+def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> None:
     _write_outputs(tmp_path)
 
     result = build_today_signals_response(tmp_path)
@@ -83,25 +83,25 @@ def test_api_response_validation(tmp_path: pathlib.Path) -> None:
     assert result["today_signals"] == {
         "top_signals": [
             {
-                "company": "Atlas Build Co",
+                "company": "Smith & Jones LLP",
                 "signal_type": "litigation",
-                "event_summary": "Lawsuit filed",
+                "event_summary": "Document production ordered",
                 "source": "court.example",
                 "date_detected": "2026-03-27",
                 "confidence_score": 5,
                 "priority": "HIGH",
-                "raw_text": "Construction contractor lawsuit filed.",
+                "raw_text": "Document production ordered for outside counsel Smith & Jones LLP.",
                 "recommended_action": "CALL NOW",
             },
             {
-                "company": "Beacon Masonry",
+                "company": "Beacon Holdings",
                 "signal_type": "audit",
                 "event_summary": "Audit notice posted",
                 "source": "audit.example",
                 "date_detected": "2026-03-27",
                 "confidence_score": 4,
                 "priority": "HIGH",
-                "raw_text": "Audit notice posted.",
+                "raw_text": "Audit notice posted for Beacon Holdings.",
                 "recommended_action": "CALL NOW",
             },
         ],
@@ -123,8 +123,8 @@ def test_api_response_validation(tmp_path: pathlib.Path) -> None:
             },
             "total_exported_count": 2,
             "top_companies": [
-                "Atlas Build Co",
-                "Beacon Masonry",
+                "Beacon Holdings",
+                "Smith & Jones LLP",
             ],
         },
     }
