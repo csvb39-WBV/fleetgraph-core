@@ -33,6 +33,42 @@ def test_signal_extraction_contract_validation() -> None:
     }
 
 
+def test_signal_extraction_detects_company_from_lawsuit_phrase() -> None:
+    result = extract_signal(
+        _result_item(
+            title="Mechanics lien filed against Atlas Build Group",
+            snippet="Complaint filed against Atlas Build Group on 2026-03-26.",
+        ),
+        signal_type="litigation",
+    )
+
+    assert result["company"] == "Atlas Build Group"
+
+
+def test_signal_extraction_detects_company_from_audit_phrase() -> None:
+    result = extract_signal(
+        _result_item(
+            title="Compliance review of Beacon Masonry Services opened",
+            snippet="Audit of Beacon Masonry Services began on 2026-03-26.",
+        ),
+        signal_type="audit",
+    )
+
+    assert result["company"] == "Beacon Masonry Services"
+
+
+def test_signal_extraction_detects_company_from_capitalized_sequence() -> None:
+    result = extract_signal(
+        _result_item(
+            title="Atlas Build Group project delay reported",
+            snippet="Atlas Build Group disclosed a delay on 2026-03-26.",
+        ),
+        signal_type="project_distress",
+    )
+
+    assert result["company"] == "Atlas Build Group"
+
+
 def test_signal_extraction_unresolved_company_fallback() -> None:
     result = extract_signal(
         _result_item(

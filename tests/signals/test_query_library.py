@@ -10,14 +10,14 @@ def test_query_ordering_deterministic() -> None:
     second = get_ordered_query_definitions()
 
     assert first == second
-    assert [query_definition["signal_type"] for query_definition in first] == [
-        "litigation",
-        "litigation",
-        "audit",
-        "project_distress",
-        "project_distress",
-        "government",
-        "government",
+    assert [query_definition["query"] for query_definition in first] == [
+        "construction lawsuit contractor",
+        "contract dispute contractor project",
+        "mechanics lien filed contractor",
+        "audit construction company compliance review contractor",
+        "project delay construction dispute",
+        "contractor default notice project",
+        "government investigation contractor contractor debarred construction",
     ]
 
 
@@ -33,6 +33,7 @@ def test_query_library_contract() -> None:
     } for query_definition in query_definitions)
     assert all(query_definition["priority_weight"] > 0 for query_definition in query_definitions)
     assert all(query_definition["max_results"] > 0 for query_definition in query_definitions)
+    assert len(query_definitions) == 7
 
 
 def test_query_library_no_mutation() -> None:

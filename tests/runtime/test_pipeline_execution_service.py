@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import copy
+import json
 import pathlib
 import sys
 
@@ -34,22 +35,46 @@ def _runtime_config(tmp_path: pathlib.Path, **overrides: object) -> dict[str, ob
 
 class SuccessTransport:
     def __call__(self, query: str, result_limit: int, timeout_seconds: float) -> list[dict[str, str]]:
-        if "mechanics lien" in query:
+        if query == "construction lawsuit contractor":
             return [{
-                "title": "Acme Construction LLC sued in mechanics lien filing",
-                "snippet": "Filed on 2026-03-27 after project payment dispute.",
-                "url": "https://example.com/acme",
+                "title": "Construction lawsuit filed against Atlas Build Group",
+                "snippet": "Complaint filed against Atlas Build Group on 2026-03-27.",
+                "url": "https://example.com/atlas-lawsuit",
             }]
-        if "audit findings" in query:
+        if query == "contract dispute contractor project":
             return [{
-                "title": "Beacon Builders audit findings released",
-                "snippet": "2026-03-27 report cites cost overruns.",
-                "url": "https://example.com/beacon",
+                "title": "Pioneer Civil Works named in contract dispute",
+                "snippet": "Pioneer Civil Works named in project contract dispute on 2026-03-27.",
+                "url": "https://example.com/pioneer-dispute",
+            }]
+        if query == "mechanics lien filed contractor":
+            return [{
+                "title": "Mechanics lien filed against Summit Concrete Services",
+                "snippet": "Mechanics lien filed against Summit Concrete Services on 2026-03-27.",
+                "url": "https://example.com/summit-lien",
+            }]
+        if query == "audit construction company compliance review contractor":
+            return [{
+                "title": "Compliance review of Beacon Masonry Services opened",
+                "snippet": "Audit of Beacon Masonry Services began on March 27, 2026.",
+                "url": "https://example.com/beacon-audit",
+            }]
+        if query == "project delay construction dispute":
+            return [{
+                "title": "Harbor Steel Partners project delay dispute reported",
+                "snippet": "Harbor Steel Partners disclosed a project delay dispute on 2026-03-27.",
+                "url": "https://example.com/harbor-delay",
+            }]
+        if query == "contractor default notice project":
+            return [{
+                "title": "Ridge Utility Group contractor default notice posted",
+                "snippet": "Ridge Utility Group received a contractor default notice on 2026-03-27.",
+                "url": "https://example.com/ridge-default",
             }]
         return [{
-            "title": "Civic Contractors dispute escalates",
-            "snippet": "2026-03-27 project delay dispute posted.",
-            "url": "https://example.com/civic",
+            "title": "Government investigation opened against Civic Bridge Builders",
+            "snippet": "Government investigation opened against Civic Bridge Builders on 2026-03-27.",
+            "url": "https://example.com/civic-government",
         }]
 
 
@@ -79,13 +104,29 @@ def test_runtime_execution_success_path(tmp_path: pathlib.Path) -> None:
         current_time=100,
     )
 
+    debug_payload = json.loads(pathlib.Path(result["debug_path"]).read_text(encoding="utf-8"))
+
     assert result["ok"] is True
     assert result["manifest"]["status"] == "success"
     assert result["manifest"]["query_count_executed"] == 7
     assert result["manifest"]["cache_hits"] == 0
     assert result["manifest"]["cache_misses"] == 7
+    assert result["manifest"]["raw_results_count"] == 7
+    assert result["manifest"]["extracted_signal_count"] == 7
+    assert result["manifest"]["deduplicated_signal_count"] == 7
+    assert result["manifest"]["retained_signal_count"] >= 5
+    assert result["manifest"]["exported_signal_count"] >= 2
+    assert len(result["primary_signals"]) >= 2
     assert pathlib.Path(result["csv_path"]).exists() is True
     assert pathlib.Path(result["manifest_path"]).exists() is True
+    assert pathlib.Path(result["debug_path"]).exists() is True
+    assert debug_payload["raw_results_count"] == 7
+    assert debug_payload["extracted_signal_count"] == 7
+    assert debug_payload["deduplicated_signal_count"] == 7
+    assert debug_payload["retained_signal_count"] >= 5
+    assert debug_payload["primary_signal_count"] >= 2
+    assert len(debug_payload["sample_raw_results"]) == 5
+    assert len(debug_payload["sample_extracted_signals"]) == 5
 
 
 def test_runtime_execution_failure_path(tmp_path: pathlib.Path) -> None:
@@ -95,10 +136,14 @@ def test_runtime_execution_failure_path(tmp_path: pathlib.Path) -> None:
         current_time=100,
     )
 
+    debug_payload = json.loads(pathlib.Path(result["debug_path"]).read_text(encoding="utf-8"))
+
     assert result["ok"] is False
     assert result["manifest"]["status"] == "failed"
     assert result["manifest"]["error_code"] == "transport_failed"
     assert pathlib.Path(result["manifest_path"]).exists() is True
+    assert pathlib.Path(result["debug_path"]).exists() is True
+    assert debug_payload["raw_results_count"] == 0
 
 
 def test_zero_deduplicated_signals_detected(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -170,10 +215,13 @@ def test_runtime_execution_deterministic_manifest_output(tmp_path: pathlib.Path)
 
     first_manifest = dict(first["manifest"])
     second_manifest = dict(second["manifest"])
+    first_debug = json.loads(pathlib.Path(first["debug_path"]).read_text(encoding="utf-8"))
+    second_debug = json.loads(pathlib.Path(second["debug_path"]).read_text(encoding="utf-8"))
     first_manifest["csv_path"] = "normalized"
     second_manifest["csv_path"] = "normalized"
 
     assert first_manifest == second_manifest
+    assert first_debug == second_debug
 
 
 def test_runtime_execution_no_mutation(tmp_path: pathlib.Path) -> None:

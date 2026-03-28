@@ -23,6 +23,40 @@ _MONTH_NAMES = {
     "november": "11",
     "december": "12",
 }
+_GENERIC_ENTITY_EXCLUSIONS = {
+    "against",
+    "audit",
+    "company",
+    "compliance",
+    "construction",
+    "contract",
+    "contractor",
+    "contractors",
+    "default",
+    "debarred",
+    "delay",
+    "filed",
+    "government",
+    "investigation",
+    "lawsuit",
+    "lien",
+    "mechanics",
+    "named",
+    "notice",
+    "project",
+    "review",
+}
+_TRAILING_ENTITY_EXCLUSIONS = {
+    "audit",
+    "complaint",
+    "default",
+    "dispute",
+    "filing",
+    "investigation",
+    "notice",
+    "project",
+    "review",
+}
 
 
 def _collapse_whitespace(value: str) -> str:
@@ -47,17 +81,54 @@ def _extract_date_detected(text: str) -> str:
     return "1970-01-01"
 
 
+def _clean_company_candidate(candidate: str) -> str:
+    cleaned_candidate = _collapse_whitespace(candidate.strip(" ,.;:-"))
+    words = cleaned_candidate.split()
+    while len(words) > 1 and words[-1].lower() in _TRAILING_ENTITY_EXCLUSIONS:
+        words = words[:-1]
+    if len(words) < 2 or len(words) > 4:
+        return ""
+    if words[0].lower() in _GENERIC_ENTITY_EXCLUSIONS:
+        return ""
+    if any(word.lower() in _MONTH_NAMES for word in words):
+        return ""
+    return " ".join(words)
+
+
 def _extract_company(text: str) -> str:
-    patterns = (
+    contextual_patterns = (
+        r"against\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
+        r"filed against\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
+        r"([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})\s+named in",
+        r"audit of\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
+        r"review of\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
+    )
+    for pattern in contextual_patterns:
+        match = re.search(pattern, text)
+        if match is not None:
+            candidate = _clean_company_candidate(match.group(1))
+            if candidate != "":
+                return candidate
+
+    corporate_patterns = (
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+(?:Inc|LLC|Corp|Corporation|Co|Company|Ltd))\b",
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Contractors?)\b",
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Construction)\b",
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Builders?)\b",
+        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Services)\b",
+        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Group)\b",
     )
-    for pattern in patterns:
+    for pattern in corporate_patterns:
         match = re.search(pattern, text)
         if match is not None:
-            return _collapse_whitespace(match.group(1))
+            candidate = _clean_company_candidate(match.group(1))
+            if candidate != "":
+                return candidate
+
+    for match in re.finditer(r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})\b", text):
+        candidate = _clean_company_candidate(match.group(1))
+        if candidate != "":
+            return candidate
     return "unknown"
 
 
