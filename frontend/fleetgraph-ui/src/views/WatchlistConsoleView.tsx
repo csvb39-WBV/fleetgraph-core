@@ -1,18 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import ChangedCompaniesPanel from '../components/watchlist/ChangedCompaniesPanel';
 import CompanyDetailConsole from '../components/watchlist/CompanyDetailConsole';
+import NeedsReviewPanel from '../components/watchlist/NeedsReviewPanel';
+import TopTargetsPanel from '../components/watchlist/TopTargetsPanel';
 import WatchlistCompanyTable from '../components/watchlist/WatchlistCompanyTable';
 import WatchlistFilters from '../components/watchlist/WatchlistFilters';
 import WatchlistModeBanner from '../components/watchlist/WatchlistModeBanner';
 import WatchlistSummaryCards from '../components/watchlist/WatchlistSummaryCards';
 import {
   filterWatchlistCompanies,
+  getWatchlistChangedCompanies,
   getWatchlistCompanies,
   getWatchlistCompanyDetail,
+  getWatchlistNeedsReview,
+  getWatchlistTopTargets,
   refreshWatchlistCompany,
+  type WatchlistChangedCompany,
   type WatchlistCompanyRecord,
   type WatchlistFilterState,
+  type WatchlistNeedsReviewItem,
   type WatchlistRefreshStatus,
+  type WatchlistTopTarget,
 } from '../services/watchlistApi';
 
 const EMPTY_FILTERS: WatchlistFilterState = {
@@ -35,6 +44,21 @@ export function WatchlistConsoleView(): JSX.Element {
   const [refreshStatus, setRefreshStatus] = useState<WatchlistRefreshStatus>('idle');
   const [refreshErrorMessage, setRefreshErrorMessage] = useState('');
   const [loadErrorMessage, setLoadErrorMessage] = useState('');
+  const [changedCompanies, setChangedCompanies] = useState<WatchlistChangedCompany[]>([]);
+  const [topTargets, setTopTargets] = useState<WatchlistTopTarget[]>([]);
+  const [needsReview, setNeedsReview] = useState<WatchlistNeedsReviewItem[]>([]);
+
+  async function loadAttentionSurfaces(): Promise<void> {
+    const [changedResult, topTargetsResult, needsReviewResult] = await Promise.allSettled([
+      getWatchlistChangedCompanies(),
+      getWatchlistTopTargets(),
+      getWatchlistNeedsReview(),
+    ]);
+
+    setChangedCompanies(changedResult.status === 'fulfilled' ? changedResult.value : []);
+    setTopTargets(topTargetsResult.status === 'fulfilled' ? topTargetsResult.value : []);
+    setNeedsReview(needsReviewResult.status === 'fulfilled' ? needsReviewResult.value : []);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +71,7 @@ export function WatchlistConsoleView(): JSX.Element {
         setCompanies(records);
         setSelectedCompanyId(records.length > 0 ? records[0].company_id : null);
         setLoadErrorMessage('');
+        void loadAttentionSurfaces();
       })
       .catch((error) => {
         if (cancelled) {
@@ -142,6 +167,7 @@ export function WatchlistConsoleView(): JSX.Element {
       )));
       setSelectedCompanyDetail(refreshedCompany);
       setRefreshStatus('refresh_succeeded');
+      await loadAttentionSurfaces();
     } catch (error) {
       setRefreshStatus('refresh_failed');
       setRefreshErrorMessage(error instanceof Error ? error.message : 'Watchlist refresh failed');
@@ -163,6 +189,11 @@ export function WatchlistConsoleView(): JSX.Element {
     <section aria-label="Watchlist Console View" style={{ display: 'grid', gap: '16px' }}>
       <WatchlistModeBanner />
       <WatchlistSummaryCards companies={filteredCompanies.length > 0 ? filteredCompanies : companies} />
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+        <TopTargetsPanel topTargets={topTargets} onSelectCompany={setSelectedCompanyId} />
+        <ChangedCompaniesPanel changedCompanies={changedCompanies} onSelectCompany={setSelectedCompanyId} />
+        <NeedsReviewPanel needsReview={needsReview} onSelectCompany={setSelectedCompanyId} />
+      </section>
       <WatchlistFilters
         filters={filters}
         categories={categories}

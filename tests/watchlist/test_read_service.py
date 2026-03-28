@@ -85,6 +85,7 @@ def test_seed_artifact_merge_and_state_derivation_are_deterministic(tmp_path: pa
 
     assert first == second
     assert first["enrichment_state"] == "enriched"
+    assert first["artifact_status"] == "ok"
     assert derive_enrichment_state(company, None) == "seed_only"
     partial_artifact = dict(artifact)
     partial_artifact["published_emails"] = []
@@ -105,9 +106,10 @@ def test_list_watchlist_company_records_reads_real_artifacts_in_stable_order(tmp
     enriched_company = next(company for company in companies if company["company_id"] == records[1]["company_id"])
     assert enriched_company["enrichment_state"] == "enriched"
     assert enriched_company["last_enriched_at"] == "2026-03-28"
+    assert enriched_company["artifact_status"] == "ok"
 
 
-def test_get_watchlist_company_record_supports_seed_only_and_unknown_company(tmp_path: pathlib.Path) -> None:
+def test_get_watchlist_company_record_supports_seed_only_invalid_and_unknown_company(tmp_path: pathlib.Path) -> None:
     runtime_config = _runtime_config(tmp_path)
     company = load_verified_subset()[0]
 
@@ -115,6 +117,14 @@ def test_get_watchlist_company_record_supports_seed_only_and_unknown_company(tmp
     assert seed_only["ok"] is True
     assert seed_only["company"]["enrichment_state"] == "seed_only"
     assert seed_only["company"]["last_enriched_at"] is None
+    assert seed_only["company"]["artifact_status"] == "missing_artifact"
+
+    invalid_path = pathlib.Path(runtime_config["output_directory"]).resolve() / "watchlist"
+    invalid_path.mkdir(parents=True, exist_ok=True)
+    (invalid_path / f"{company['company_id']}.json").write_text("{bad", encoding="utf-8")
+    invalid = get_watchlist_company_record(company["company_id"], runtime_config=runtime_config, dataset="verified_subset")
+    assert invalid["ok"] is True
+    assert invalid["company"]["artifact_status"] == "invalid_artifact"
 
     unknown = get_watchlist_company_record("missing-company", runtime_config=runtime_config, dataset="verified_subset")
     assert unknown == {

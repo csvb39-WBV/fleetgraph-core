@@ -37,6 +37,41 @@ function refreshStatusLabel(refreshStatus: WatchlistRefreshStatus): string {
   return 'Idle';
 }
 
+function formatReasonCodes(reasonCodes: string[]): string {
+  if (reasonCodes.length === 0) {
+    return 'No priority reasons available.';
+  }
+  return reasonCodes.join(', ');
+}
+
+function deltaSummaryText(company: WatchlistCompanyRecord): string {
+  if (!company.delta_summary || company.delta_summary.change_detected !== true) {
+    return 'No new changes detected since the last comparison.';
+  }
+
+  const parts: string[] = [];
+  if (company.delta_summary.new_signal_count > 0) {
+    parts.push(`${company.delta_summary.new_signal_count} new signal(s)`);
+  }
+  if (company.delta_summary.new_project_count > 0) {
+    parts.push(`${company.delta_summary.new_project_count} new project(s)`);
+  }
+  if (company.delta_summary.new_email_count > 0) {
+    parts.push(`${company.delta_summary.new_email_count} new email(s)`);
+  }
+  if (company.delta_summary.new_key_people_count > 0) {
+    parts.push(`${company.delta_summary.new_key_people_count} new key people`);
+  }
+  if (company.delta_summary.confidence_changed) {
+    parts.push('confidence changed');
+  }
+
+  if (parts.length === 0) {
+    return company.delta_summary.change_types.join(', ') || 'Change detected.';
+  }
+  return parts.join(', ');
+}
+
 export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessage, onRefresh }: Props): JSX.Element {
   if (!company) {
     return (
@@ -76,6 +111,13 @@ export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessa
         <div style={{ display: 'grid', gap: '4px', marginBottom: '10px', fontSize: '13px', color: '#334155' }}>
           <div><strong>Refresh Status:</strong> {refreshStatusLabel(refreshStatus)}</div>
           {refreshErrorMessage ? <div><strong>Refresh Error:</strong> {refreshErrorMessage}</div> : null}
+        </div>
+        <div style={{ display: 'grid', gap: '6px', marginBottom: '12px', fontSize: '13px', color: '#334155' }}>
+          <div><strong>Changed Since Last Run:</strong> {company.delta_summary?.change_detected ? 'Yes' : 'No'}</div>
+          <div><strong>Delta Summary:</strong> {deltaSummaryText(company)}</div>
+          <div><strong>Priority Score:</strong> {company.priority_summary?.priority_score ?? company.delta_summary?.priority_score ?? 0}</div>
+          <div><strong>Priority Reasons:</strong> {formatReasonCodes(company.priority_summary?.priority_reason_codes ?? company.delta_summary?.priority_reason_codes ?? [])}</div>
+          <div><strong>Needs Review:</strong> {company.priority_summary?.needs_review ? 'Yes' : 'No'}</div>
         </div>
         <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
           <div><strong>Category:</strong> {company.category}</div>

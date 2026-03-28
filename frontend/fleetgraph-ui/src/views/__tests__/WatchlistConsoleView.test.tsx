@@ -58,6 +58,32 @@ const beaconCompany = {
   last_enriched_at: '2026-03-28T09:00:00Z',
   confidence_level: 'HIGH' as const,
   enrichment_state: 'enriched' as const,
+  delta_summary: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    change_detected: true,
+    change_types: ['new_signal_added', 'last_enriched_at_changed'],
+    previous_enrichment_state: 'partial',
+    current_enrichment_state: 'enriched',
+    new_signal_count: 1,
+    new_project_count: 0,
+    new_email_count: 0,
+    new_key_people_count: 0,
+    confidence_changed: false,
+    last_enriched_at: '2026-03-28T09:00:00Z',
+    priority_score: 96,
+    priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+  },
+  priority_summary: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    priority_score: 96,
+    priority_band: 'HIGH',
+    priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+    changed_since_last_run: true,
+    needs_review: true,
+    needs_review_reasons: ['changed_since_last_run'],
+  },
 };
 
 const smithCompany = {
@@ -105,6 +131,32 @@ const smithCompany = {
   last_enriched_at: '2026-03-28T09:15:00Z',
   confidence_level: 'HIGH' as const,
   enrichment_state: 'partial' as const,
+  delta_summary: {
+    company_id: 'smith-jones-llp',
+    company_name: 'Smith & Jones LLP',
+    change_detected: false,
+    change_types: [],
+    previous_enrichment_state: 'partial',
+    current_enrichment_state: 'partial',
+    new_signal_count: 0,
+    new_project_count: 0,
+    new_email_count: 0,
+    new_key_people_count: 0,
+    confidence_changed: false,
+    last_enriched_at: '2026-03-28T09:15:00Z',
+    priority_score: 74,
+    priority_reason_codes: ['tier_1_company', 'partial_enrichment'],
+  },
+  priority_summary: {
+    company_id: 'smith-jones-llp',
+    company_name: 'Smith & Jones LLP',
+    priority_score: 74,
+    priority_band: 'MEDIUM',
+    priority_reason_codes: ['tier_1_company', 'partial_enrichment'],
+    changed_since_last_run: false,
+    needs_review: true,
+    needs_review_reasons: ['partial_enrichment_with_active_signals'],
+  },
 };
 
 const atlasCompany = {
@@ -133,6 +185,32 @@ const atlasCompany = {
   last_enriched_at: '',
   confidence_level: 'LOW' as const,
   enrichment_state: 'seed_only' as const,
+  delta_summary: {
+    company_id: 'atlas-services-group',
+    company_name: 'Atlas Services Group',
+    change_detected: false,
+    change_types: [],
+    previous_enrichment_state: 'seed_only',
+    current_enrichment_state: 'seed_only',
+    new_signal_count: 0,
+    new_project_count: 0,
+    new_email_count: 0,
+    new_key_people_count: 0,
+    confidence_changed: false,
+    last_enriched_at: '',
+    priority_score: 58,
+    priority_reason_codes: ['tier_2_company', 'seed_only_unreviewed'],
+  },
+  priority_summary: {
+    company_id: 'atlas-services-group',
+    company_name: 'Atlas Services Group',
+    priority_score: 58,
+    priority_band: 'MEDIUM',
+    priority_reason_codes: ['tier_2_company', 'seed_only_unreviewed'],
+    changed_since_last_run: false,
+    needs_review: true,
+    needs_review_reasons: ['seed_only_high_priority_no_recent_refresh'],
+  },
 };
 
 const mockApi = vi.hoisted(() => ({
@@ -140,6 +218,9 @@ const mockApi = vi.hoisted(() => ({
   getWatchlistCompanyDetail: vi.fn(),
   refreshWatchlistCompany: vi.fn(),
   filterWatchlistCompanies: vi.fn(),
+  getWatchlistChangedCompanies: vi.fn(),
+  getWatchlistTopTargets: vi.fn(),
+  getWatchlistNeedsReview: vi.fn(),
 }));
 
 vi.mock('../../services/watchlistApi', async () => {
@@ -150,6 +231,9 @@ vi.mock('../../services/watchlistApi', async () => {
     getWatchlistCompanyDetail: mockApi.getWatchlistCompanyDetail,
     refreshWatchlistCompany: mockApi.refreshWatchlistCompany,
     filterWatchlistCompanies: mockApi.filterWatchlistCompanies,
+    getWatchlistChangedCompanies: mockApi.getWatchlistChangedCompanies,
+    getWatchlistTopTargets: mockApi.getWatchlistTopTargets,
+    getWatchlistNeedsReview: mockApi.getWatchlistNeedsReview,
   };
 });
 
@@ -214,6 +298,9 @@ beforeEach(() => {
   mockApi.getWatchlistCompanyDetail.mockReset();
   mockApi.refreshWatchlistCompany.mockReset();
   mockApi.filterWatchlistCompanies.mockReset();
+  mockApi.getWatchlistChangedCompanies.mockReset();
+  mockApi.getWatchlistTopTargets.mockReset();
+  mockApi.getWatchlistNeedsReview.mockReset();
 
   mockApi.getWatchlistCompanies.mockResolvedValue([beaconCompany, smithCompany, atlasCompany]);
   mockApi.getWatchlistCompanyDetail.mockImplementation(async (companyId: string) => {
@@ -227,6 +314,49 @@ beforeEach(() => {
     ...beaconCompany,
     last_enriched_at: '2026-03-28T10:45:00Z',
   });
+  mockApi.getWatchlistChangedCompanies.mockResolvedValue([
+    beaconCompany.delta_summary,
+  ]);
+  mockApi.getWatchlistTopTargets.mockResolvedValue([
+    {
+      company_id: 'beacon-holdings',
+      company_name: 'Beacon Holdings',
+      priority_score: 96,
+      priority_band: 'HIGH',
+      reason_summary: 'Tier 1 company with new signal activity.',
+      current_enrichment_state: 'enriched',
+      change_detected: true,
+      priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+    },
+    {
+      company_id: 'smith-jones-llp',
+      company_name: 'Smith & Jones LLP',
+      priority_score: 74,
+      priority_band: 'MEDIUM',
+      reason_summary: 'Tier 1 company with partial enrichment.',
+      current_enrichment_state: 'partial',
+      change_detected: false,
+      priority_reason_codes: ['tier_1_company', 'partial_enrichment'],
+    },
+  ]);
+  mockApi.getWatchlistNeedsReview.mockResolvedValue([
+    {
+      company_id: 'beacon-holdings',
+      company_name: 'Beacon Holdings',
+      review_reason_summary: 'Changed since last run.',
+      current_enrichment_state: 'enriched',
+      priority_score: 96,
+      last_enriched_at: '2026-03-28T09:00:00Z',
+    },
+    {
+      company_id: 'atlas-services-group',
+      company_name: 'Atlas Services Group',
+      review_reason_summary: 'Seed-only company needs first review.',
+      current_enrichment_state: 'seed_only',
+      priority_score: 58,
+      last_enriched_at: '',
+    },
+  ]);
   mockApi.filterWatchlistCompanies.mockImplementation((companies, filters) => (
     companies.filter((company: typeof beaconCompany) => {
       if (filters.category && company.category !== filters.category) {
@@ -259,6 +389,11 @@ test('live watchlist data loads into the console', async () => {
   const html = container.innerHTML;
   expect(html).toContain('Watchlist Mode');
   expect(html).toContain('Discovery Mode remains separate');
+  expect(html).toContain('Top Targets');
+  expect(html).toContain('Changed Since Last Run');
+  expect(html).toContain('Needs Review');
+  expect(html).toContain('Tier 1 company with new signal activity.');
+  expect(html).toContain('Changed since last run.');
   expect(html).toContain('Beacon Holdings');
   expect(html).toContain('Smith & Jones LLP');
   expect(html).toContain('Atlas Services Group');
@@ -278,6 +413,10 @@ test('selected company detail binds correctly from live detail service', async (
   expect(html).toContain('Legal Services');
   expect(html).toContain('2026-03-28T09:15:00Z');
   expect(html).toContain('partial enrichment record');
+  expect(html).toContain('Changed Since Last Run:');
+  expect(html).toContain('No');
+  expect(html).toContain('Priority Score:');
+  expect(html).toContain('74');
 
   root.unmount();
 });
@@ -291,6 +430,9 @@ test('refresh success updates visible state', async () => {
   expect(mockApi.refreshWatchlistCompany).toHaveBeenCalledWith('beacon-holdings');
   expect(html).toContain('Refresh succeeded.');
   expect(html).toContain('2026-03-28T10:45:00Z');
+  expect(mockApi.getWatchlistChangedCompanies).toHaveBeenCalled();
+  expect(mockApi.getWatchlistTopTargets).toHaveBeenCalled();
+  expect(mockApi.getWatchlistNeedsReview).toHaveBeenCalled();
 
   root.unmount();
 });
@@ -321,6 +463,23 @@ test('empty partial and enriched states render cleanly', async () => {
   expect(html).toContain('No recent signals have been retained for this company yet.');
   expect(html).toContain('No recent projects are currently attached to this company.');
   expect(html).toContain('No source-backed links are available yet for this company.');
+  expect(html).toContain('Needs Review:');
+  expect(html).toContain('Yes');
+
+  root.unmount();
+});
+
+test('empty delta priority surfaces render cleanly', async () => {
+  mockApi.getWatchlistChangedCompanies.mockResolvedValueOnce([]);
+  mockApi.getWatchlistTopTargets.mockResolvedValueOnce([]);
+  mockApi.getWatchlistNeedsReview.mockResolvedValueOnce([]);
+
+  const { container, root } = await renderView();
+
+  const html = container.innerHTML;
+  expect(html).toContain('No top targets are available for this watchlist run.');
+  expect(html).toContain('No watchlist companies changed since the last comparison.');
+  expect(html).toContain('No companies currently require review.');
 
   root.unmount();
 });

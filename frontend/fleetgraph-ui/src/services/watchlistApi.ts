@@ -5,6 +5,7 @@ export type WatchlistVerificationStatus = 'verified' | 'seed';
 export type WatchlistEnrichmentState = 'seed_only' | 'partial' | 'enriched';
 export type WatchlistConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 export type WatchlistRefreshStatus = 'idle' | 'refreshing' | 'refresh_succeeded' | 'refresh_failed';
+export type WatchlistPriorityBand = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type WatchlistSeedCompany = {
   company_id: string;
@@ -59,6 +60,58 @@ export type WatchlistCompanyRecord = WatchlistSeedCompany & {
   last_enriched_at: string;
   confidence_level: WatchlistConfidenceLevel;
   enrichment_state: WatchlistEnrichmentState;
+  delta_summary?: WatchlistDeltaSummary;
+  priority_summary?: WatchlistPrioritySummary;
+};
+
+export type WatchlistDeltaSummary = {
+  company_id: string;
+  company_name: string;
+  change_detected: boolean;
+  change_types: string[];
+  previous_enrichment_state: string;
+  current_enrichment_state: string;
+  new_signal_count: number;
+  new_project_count: number;
+  new_email_count: number;
+  new_key_people_count: number;
+  confidence_changed: boolean;
+  last_enriched_at: string;
+  priority_score: number;
+  priority_reason_codes: string[];
+};
+
+export type WatchlistPrioritySummary = {
+  company_id: string;
+  company_name: string;
+  priority_score: number;
+  priority_band: WatchlistPriorityBand;
+  priority_reason_codes: string[];
+  changed_since_last_run: boolean;
+  needs_review: boolean;
+  needs_review_reasons: string[];
+};
+
+export type WatchlistChangedCompany = WatchlistDeltaSummary;
+
+export type WatchlistTopTarget = {
+  company_id: string;
+  company_name: string;
+  priority_score: number;
+  priority_band: WatchlistPriorityBand;
+  reason_summary: string;
+  current_enrichment_state: string;
+  change_detected: boolean;
+  priority_reason_codes: string[];
+};
+
+export type WatchlistNeedsReviewItem = {
+  company_id: string;
+  company_name: string;
+  review_reason_summary: string;
+  current_enrichment_state: string;
+  priority_score: number;
+  last_enriched_at: string;
 };
 
 export type WatchlistFilterState = {
@@ -88,6 +141,24 @@ type WatchlistRefreshResponse = {
   error_code?: string | null;
 };
 
+type WatchlistChangedCompaniesResponse = {
+  ok?: boolean;
+  changed_companies?: unknown;
+  error_code?: string | null;
+};
+
+type WatchlistTopTargetsResponse = {
+  ok?: boolean;
+  top_targets?: unknown;
+  error_code?: string | null;
+};
+
+type WatchlistNeedsReviewResponse = {
+  ok?: boolean;
+  needs_review?: unknown;
+  error_code?: string | null;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -114,6 +185,14 @@ function isVerificationStatus(value: unknown): value is WatchlistVerificationSta
 
 function isEnrichmentState(value: unknown): value is WatchlistEnrichmentState {
   return value === 'seed_only' || value === 'partial' || value === 'enriched';
+}
+
+function isPriorityBand(value: unknown): value is WatchlistPriorityBand {
+  return value === 'HIGH' || value === 'MEDIUM' || value === 'LOW';
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 function parsePerson(value: unknown): WatchlistPerson {
@@ -193,6 +272,16 @@ function cloneRecord(record: WatchlistCompanyRecord): WatchlistCompanyRecord {
     recent_signals: record.recent_signals.map((signal) => ({ ...signal })),
     recent_projects: record.recent_projects.map((project) => ({ ...project })),
     source_links: [...record.source_links],
+    delta_summary: record.delta_summary ? {
+      ...record.delta_summary,
+      change_types: [...record.delta_summary.change_types],
+      priority_reason_codes: [...record.delta_summary.priority_reason_codes],
+    } : undefined,
+    priority_summary: record.priority_summary ? {
+      ...record.priority_summary,
+      priority_reason_codes: [...record.priority_summary.priority_reason_codes],
+      needs_review_reasons: [...record.priority_summary.needs_review_reasons],
+    } : undefined,
   };
 }
 
@@ -276,6 +365,132 @@ function parseCompanyRecord(value: unknown): WatchlistCompanyRecord {
     last_enriched_at: value.last_enriched_at,
     confidence_level: value.confidence_level,
     enrichment_state: value.enrichment_state,
+    delta_summary: value.delta_summary === undefined ? undefined : parseDeltaSummary(value.delta_summary),
+    priority_summary: value.priority_summary === undefined ? undefined : parsePrioritySummary(value.priority_summary),
+  };
+}
+
+function parseDeltaSummary(value: unknown): WatchlistDeltaSummary {
+  if (!isRecord(value)) {
+    throw new Error('Invalid watchlist delta summary');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || typeof value.change_detected !== 'boolean'
+    || !isStringArray(value.change_types)
+    || !isString(value.previous_enrichment_state)
+    || !isString(value.current_enrichment_state)
+    || !isNumber(value.new_signal_count)
+    || !isNumber(value.new_project_count)
+    || !isNumber(value.new_email_count)
+    || !isNumber(value.new_key_people_count)
+    || typeof value.confidence_changed !== 'boolean'
+    || !isString(value.last_enriched_at)
+    || !isNumber(value.priority_score)
+    || !isStringArray(value.priority_reason_codes)
+  ) {
+    throw new Error('Invalid watchlist delta summary');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    change_detected: value.change_detected,
+    change_types: [...value.change_types],
+    previous_enrichment_state: value.previous_enrichment_state,
+    current_enrichment_state: value.current_enrichment_state,
+    new_signal_count: value.new_signal_count,
+    new_project_count: value.new_project_count,
+    new_email_count: value.new_email_count,
+    new_key_people_count: value.new_key_people_count,
+    confidence_changed: value.confidence_changed,
+    last_enriched_at: value.last_enriched_at,
+    priority_score: value.priority_score,
+    priority_reason_codes: [...value.priority_reason_codes],
+  };
+}
+
+function parsePrioritySummary(value: unknown): WatchlistPrioritySummary {
+  if (!isRecord(value)) {
+    throw new Error('Invalid watchlist priority summary');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || !isNumber(value.priority_score)
+    || !isPriorityBand(value.priority_band)
+    || !isStringArray(value.priority_reason_codes)
+    || typeof value.changed_since_last_run !== 'boolean'
+    || typeof value.needs_review !== 'boolean'
+    || !isStringArray(value.needs_review_reasons)
+  ) {
+    throw new Error('Invalid watchlist priority summary');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    priority_score: value.priority_score,
+    priority_band: value.priority_band,
+    priority_reason_codes: [...value.priority_reason_codes],
+    changed_since_last_run: value.changed_since_last_run,
+    needs_review: value.needs_review,
+    needs_review_reasons: [...value.needs_review_reasons],
+  };
+}
+
+function parseTopTarget(value: unknown): WatchlistTopTarget {
+  if (!isRecord(value)) {
+    throw new Error('Invalid top target');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || !isNumber(value.priority_score)
+    || !isPriorityBand(value.priority_band)
+    || !isString(value.reason_summary)
+    || !isString(value.current_enrichment_state)
+    || typeof value.change_detected !== 'boolean'
+    || !isStringArray(value.priority_reason_codes)
+  ) {
+    throw new Error('Invalid top target');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    priority_score: value.priority_score,
+    priority_band: value.priority_band,
+    reason_summary: value.reason_summary,
+    current_enrichment_state: value.current_enrichment_state,
+    change_detected: value.change_detected,
+    priority_reason_codes: [...value.priority_reason_codes],
+  };
+}
+
+function parseNeedsReviewItem(value: unknown): WatchlistNeedsReviewItem {
+  if (!isRecord(value)) {
+    throw new Error('Invalid needs review item');
+  }
+  if (
+    !isString(value.company_id)
+    || !isString(value.company_name)
+    || !isString(value.review_reason_summary)
+    || !isString(value.current_enrichment_state)
+    || !isNumber(value.priority_score)
+    || !isString(value.last_enriched_at)
+  ) {
+    throw new Error('Invalid needs review item');
+  }
+
+  return {
+    company_id: value.company_id,
+    company_name: value.company_name,
+    review_reason_summary: value.review_reason_summary,
+    current_enrichment_state: value.current_enrichment_state,
+    priority_score: value.priority_score,
+    last_enriched_at: value.last_enriched_at,
   };
 }
 
@@ -356,4 +571,37 @@ export async function refreshWatchlistCompany(companyId: string): Promise<Watchl
   }
 
   return cloneRecord(parseCompanyRecord(response.company));
+}
+
+export async function getWatchlistChangedCompanies(): Promise<WatchlistChangedCompany[]> {
+  const payload = await requestJson('/watchlist/changed-companies');
+  const response = payload as WatchlistChangedCompaniesResponse;
+
+  if (response.ok !== true || !Array.isArray(response.changed_companies)) {
+    throw new Error(response.error_code ?? 'Invalid changed companies payload');
+  }
+
+  return response.changed_companies.map((item) => parseDeltaSummary(item));
+}
+
+export async function getWatchlistTopTargets(): Promise<WatchlistTopTarget[]> {
+  const payload = await requestJson('/watchlist/top-targets');
+  const response = payload as WatchlistTopTargetsResponse;
+
+  if (response.ok !== true || !Array.isArray(response.top_targets)) {
+    throw new Error(response.error_code ?? 'Invalid top targets payload');
+  }
+
+  return response.top_targets.map((item) => parseTopTarget(item));
+}
+
+export async function getWatchlistNeedsReview(): Promise<WatchlistNeedsReviewItem[]> {
+  const payload = await requestJson('/watchlist/needs-review');
+  const response = payload as WatchlistNeedsReviewResponse;
+
+  if (response.ok !== true || !Array.isArray(response.needs_review)) {
+    throw new Error(response.error_code ?? 'Invalid needs review payload');
+  }
+
+  return response.needs_review.map((item) => parseNeedsReviewItem(item));
 }

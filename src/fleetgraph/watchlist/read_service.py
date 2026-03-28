@@ -142,7 +142,10 @@ def derive_enrichment_state(
 def merge_seed_with_artifact(
     seed_record: dict[str, object],
     artifact_payload: dict[str, object] | None,
+    *,
+    artifact_status: str | None = None,
 ) -> dict[str, object]:
+    artifact_status_value = artifact_status or ("ok" if artifact_payload is not None else "missing_artifact")
     artifact_source_links = [] if artifact_payload is None else list(artifact_payload["source_links"])
     merged_record = {
         "company_id": seed_record["company_id"],
@@ -170,6 +173,7 @@ def merge_seed_with_artifact(
         "last_enriched_at": None if artifact_payload is None else artifact_payload["last_enriched_at"],
         "confidence_level": "low" if artifact_payload is None else artifact_payload["confidence_level"],
         "enrichment_state": derive_enrichment_state(seed_record, artifact_payload),
+        "artifact_status": artifact_status_value,
     }
     return merged_record
 
@@ -184,7 +188,8 @@ def list_watchlist_company_records(
     for seed_record in seed_records:
         artifact_result = read_watchlist_artifact(str(seed_record["company_id"]), runtime_config=runtime_config)
         artifact_payload = artifact_result["artifact"] if artifact_result["ok"] is True else None
-        merged_records.append(merge_seed_with_artifact(seed_record, artifact_payload))
+        artifact_status = "ok" if artifact_result["ok"] is True else str(artifact_result["error_code"])
+        merged_records.append(merge_seed_with_artifact(seed_record, artifact_payload, artifact_status=artifact_status))
     return _sorted_watchlist_records(merged_records)
 
 
@@ -201,9 +206,10 @@ def get_watchlist_company_record(
         if seed_record["company_id"] == company_id:
             artifact_result = read_watchlist_artifact(company_id, runtime_config=runtime_config)
             artifact_payload = artifact_result["artifact"] if artifact_result["ok"] is True else None
+            artifact_status = "ok" if artifact_result["ok"] is True else str(artifact_result["error_code"])
             return {
                 "ok": True,
-                "company": merge_seed_with_artifact(seed_record, artifact_payload),
+                "company": merge_seed_with_artifact(seed_record, artifact_payload, artifact_status=artifact_status),
                 "error_code": None,
             }
     return {

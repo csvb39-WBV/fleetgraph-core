@@ -2,8 +2,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import {
   filterWatchlistCompanies,
+  getWatchlistChangedCompanies,
   getWatchlistCompanies,
   getWatchlistCompanyDetail,
+  getWatchlistNeedsReview,
+  getWatchlistTopTargets,
   refreshWatchlistCompany,
 } from './watchlistApi';
 
@@ -51,6 +54,32 @@ const beaconCompany = {
   last_enriched_at: '2026-03-28T09:00:00Z',
   confidence_level: 'HIGH',
   enrichment_state: 'enriched',
+  delta_summary: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    change_detected: true,
+    change_types: ['new_signal_added', 'last_enriched_at_changed'],
+    previous_enrichment_state: 'partial',
+    current_enrichment_state: 'enriched',
+    new_signal_count: 1,
+    new_project_count: 0,
+    new_email_count: 0,
+    new_key_people_count: 0,
+    confidence_changed: false,
+    last_enriched_at: '2026-03-28T09:00:00Z',
+    priority_score: 96,
+    priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+  },
+  priority_summary: {
+    company_id: 'beacon-holdings',
+    company_name: 'Beacon Holdings',
+    priority_score: 96,
+    priority_band: 'HIGH',
+    priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+    changed_since_last_run: true,
+    needs_review: true,
+    needs_review_reasons: ['changed_since_last_run'],
+  },
 } as const;
 
 const smithCompany = {
@@ -143,6 +172,73 @@ test('refresh returns updated company record', async () => {
   const result = await refreshWatchlistCompany('beacon-holdings');
 
   expect(result.last_enriched_at).toBe('2026-03-28T10:45:00Z');
+});
+
+test('changed companies payload parses deterministically', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      changed_companies: [beaconCompany.delta_summary],
+      error_code: null,
+    }),
+  });
+
+  const result = await getWatchlistChangedCompanies();
+
+  expect(result).toEqual([beaconCompany.delta_summary]);
+});
+
+test('top targets payload parses deterministically', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      top_targets: [
+        {
+          company_id: 'beacon-holdings',
+          company_name: 'Beacon Holdings',
+          priority_score: 96,
+          priority_band: 'HIGH',
+          reason_summary: 'Tier 1 company with new signal activity.',
+          current_enrichment_state: 'enriched',
+          change_detected: true,
+          priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+        },
+      ],
+      error_code: null,
+    }),
+  });
+
+  const result = await getWatchlistTopTargets();
+
+  expect(result[0].priority_score).toBe(96);
+  expect(result[0].reason_summary).toBe('Tier 1 company with new signal activity.');
+});
+
+test('needs review payload parses deterministically', async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      ok: true,
+      needs_review: [
+        {
+          company_id: 'beacon-holdings',
+          company_name: 'Beacon Holdings',
+          review_reason_summary: 'Changed since last run.',
+          current_enrichment_state: 'enriched',
+          priority_score: 96,
+          last_enriched_at: '2026-03-28T09:00:00Z',
+        },
+      ],
+      error_code: null,
+    }),
+  });
+
+  const result = await getWatchlistNeedsReview();
+
+  expect(result[0].company_name).toBe('Beacon Holdings');
+  expect(result[0].priority_score).toBe(96);
 });
 
 test('filters apply deterministically to live company records', async () => {
