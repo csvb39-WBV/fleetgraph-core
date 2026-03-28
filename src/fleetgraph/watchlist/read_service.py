@@ -17,8 +17,16 @@ _ARTIFACT_KEYS = {
     "category",
     "segment",
     "key_people",
+    "direct_phones",
+    "general_emails",
     "published_emails",
+    "contact_pages",
+    "leadership_pages",
+    "address_lines",
+    "contact_sources",
     "email_pattern_guess",
+    "contact_confidence_level",
+    "reachability_score",
     "recent_signals",
     "recent_projects",
     "source_links",
@@ -66,9 +74,19 @@ def _is_valid_artifact_payload(payload: object) -> bool:
         return False
     if payload["confidence_level"] not in {"low", "medium", "high"}:
         return False
+    if payload["contact_confidence_level"] not in {"low", "medium", "high"}:
+        return False
+    if not isinstance(payload["reachability_score"], int) or isinstance(payload["reachability_score"], bool):
+        return False
     for field_name in (
         "key_people",
+        "direct_phones",
+        "general_emails",
         "published_emails",
+        "contact_pages",
+        "leadership_pages",
+        "address_lines",
+        "contact_sources",
         "recent_signals",
         "recent_projects",
         "source_links",
@@ -131,7 +149,7 @@ def derive_enrichment_state(
     has_projects = len(artifact_payload["recent_projects"]) > 0
     has_refresh_timestamp = isinstance(artifact_payload["last_enriched_at"], str) and artifact_payload["last_enriched_at"].strip() != ""
     has_email_guess = artifact_payload["email_pattern_guess"] is not None
-    has_phone = artifact_payload["main_phone"] is not None
+    has_phone = artifact_payload["main_phone"] is not None or len(artifact_payload["direct_phones"]) > 0
     if has_refresh_timestamp and (has_emails or has_signals or has_projects):
         return "enriched"
     if has_refresh_timestamp or has_email_guess or has_phone:
@@ -165,8 +183,16 @@ def merge_seed_with_artifact(
         "verification_status": seed_record["verification_status"],
         "notes": seed_record["notes"],
         "key_people": [] if artifact_payload is None else list(artifact_payload["key_people"]),
+        "direct_phones": [] if artifact_payload is None else list(artifact_payload["direct_phones"]),
+        "general_emails": [] if artifact_payload is None else list(artifact_payload["general_emails"]),
         "published_emails": [] if artifact_payload is None else list(artifact_payload["published_emails"]),
+        "contact_pages": [] if artifact_payload is None else list(artifact_payload["contact_pages"]),
+        "leadership_pages": [] if artifact_payload is None else list(artifact_payload["leadership_pages"]),
+        "address_lines": [] if artifact_payload is None else list(artifact_payload["address_lines"]),
+        "contact_sources": [] if artifact_payload is None else list(artifact_payload["contact_sources"]),
         "email_pattern_guess": None if artifact_payload is None else artifact_payload["email_pattern_guess"],
+        "contact_confidence_level": "low" if artifact_payload is None else artifact_payload["contact_confidence_level"],
+        "reachability_score": 0 if artifact_payload is None else artifact_payload["reachability_score"],
         "recent_signals": [] if artifact_payload is None else list(artifact_payload["recent_signals"]),
         "recent_projects": [] if artifact_payload is None else list(artifact_payload["recent_projects"]),
         "source_links": artifact_source_links if len(artifact_source_links) > 0 else list(seed_record["sources"]),

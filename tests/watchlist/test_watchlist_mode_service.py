@@ -83,18 +83,23 @@ def test_watchlist_mode_is_explicit_and_enriches_one_company(tmp_path: pathlib.P
     assert result["ok"] is True
     assert result["companies_processed"] == 1
     assert pathlib.Path(result["artifact_paths"][0]).exists() is True
+    assert pathlib.Path(result["delta_paths"][0]).exists() is True
     artifact_payload = json.loads(pathlib.Path(result["artifact_paths"][0]).read_text(encoding="utf-8"))
+    delta_payload = json.loads(pathlib.Path(result["delta_paths"][0]).read_text(encoding="utf-8"))
     assert artifact_payload["company_name"] == "Turner Construction"
     assert artifact_payload["published_emails"] == [
         {
             "email": "jane.doe@turnerconstruction.com",
             "source_url": "https://example.com/turner-lawsuit",
             "confidence": "high",
+            "type": "direct_email",
+            "is_direct": True,
         }
     ]
+    assert delta_payload["company_id"] == company["company_id"]
 
 
-def test_list_watchlist_mode_companies_returns_live_merged_records(tmp_path: pathlib.Path) -> None:
+def test_list_watchlist_mode_companies_returns_live_merged_records_and_attention_surfaces(tmp_path: pathlib.Path) -> None:
     company = load_verified_subset()[0]
     runtime_config = _runtime_config(tmp_path)
     _ = execute_watchlist_mode(
@@ -111,9 +116,12 @@ def test_list_watchlist_mode_companies_returns_live_merged_records(tmp_path: pat
     listed_company = next(item for item in listing["companies"] if item["company_id"] == company["company_id"])
     assert listed_company["enrichment_state"] == "enriched"
     assert listed_company["last_enriched_at"] == "2026-03-28"
+    assert listing["changed_companies"][0]["company_id"] == company["company_id"]
+    assert listing["top_targets"][0]["company_id"] == company["company_id"]
+    assert listing["needs_review"][0]["company_id"] == company["company_id"]
 
 
-def test_refresh_watchlist_company_updates_persisted_artifact(tmp_path: pathlib.Path) -> None:
+def test_refresh_watchlist_company_updates_persisted_artifact_and_delta(tmp_path: pathlib.Path) -> None:
     company = load_verified_subset()[0]
     runtime_config = _runtime_config(tmp_path)
 
@@ -134,12 +142,17 @@ def test_refresh_watchlist_company_updates_persisted_artifact(tmp_path: pathlib.
     assert first["company"]["enrichment_state"] == "partial"
     assert second["ok"] is True
     assert second["company"]["enrichment_state"] == "enriched"
+    assert pathlib.Path(second["delta_path"]).exists() is True
+    assert second["delta_summary"]["change_detected"] is True
+    assert second["delta_summary"]["new_signal_count"] >= 1
     artifact_payload = json.loads(pathlib.Path(second["artifact_path"]).read_text(encoding="utf-8"))
     assert artifact_payload["published_emails"] == [
         {
             "email": "jane.doe@turnerconstruction.com",
             "source_url": "https://example.com/turner-lawsuit",
             "confidence": "high",
+            "type": "direct_email",
+            "is_direct": True,
         }
     ]
 
@@ -157,6 +170,8 @@ def test_refresh_unknown_company_id_fails_deterministically(tmp_path: pathlib.Pa
         "ok": False,
         "company": None,
         "artifact_path": None,
+        "delta_path": None,
+        "delta_summary": None,
         "error_code": "unknown_company_id",
     }
 
@@ -179,7 +194,10 @@ def test_repeated_refresh_is_deterministic_for_fixed_input(tmp_path: pathlib.Pat
 
     first_company = dict(first["company"])
     second_company = dict(second["company"])
+    first_delta = dict(first["delta_summary"])
+    second_delta = dict(second["delta_summary"])
     assert first_company == second_company
+    assert first_delta == second_delta
 
 
 def test_empty_hits_return_deterministic_empty_artifact(tmp_path: pathlib.Path) -> None:

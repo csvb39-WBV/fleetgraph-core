@@ -31,7 +31,13 @@ def merge_watchlist_artifact(existing_artifact: dict[str, object] | None, new_ar
     for field_name in new_artifact.keys():
         if field_name in {
             "key_people",
+            "direct_phones",
+            "general_emails",
             "published_emails",
+            "contact_pages",
+            "leadership_pages",
+            "address_lines",
+            "contact_sources",
             "recent_signals",
             "recent_projects",
             "source_links",

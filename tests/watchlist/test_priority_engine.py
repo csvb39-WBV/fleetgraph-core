@@ -86,7 +86,7 @@ def test_needs_review_derivation_is_rule_based_and_deterministic() -> None:
 
 
 def test_invalid_artifact_and_high_priority_seed_only_require_review() -> None:
-    invalid_company = _company(artifact_status="invalid_artifact")
+    invalid_company = _company(enrichment_state="seed_only", artifact_status="invalid_artifact")
 
     review = derive_needs_review(invalid_company, delta_summary=None)
     priority = score_watchlist_company(invalid_company, delta_summary=None, reference_date="2026-03-28")

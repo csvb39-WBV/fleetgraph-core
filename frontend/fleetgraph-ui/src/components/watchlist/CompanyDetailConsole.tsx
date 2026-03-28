@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { WatchlistCompanyRecord, WatchlistRefreshStatus } from '../../services/watchlistApi';
+import type { ContactConfidenceLevel, WatchlistCompanyRecord, WatchlistRefreshStatus } from '../../services/watchlistApi';
 import ContactsPanel from './ContactsPanel';
 import KeyPeoplePanel from './KeyPeoplePanel';
 import ProjectsLocationsPanel from './ProjectsLocationsPanel';
@@ -72,6 +72,16 @@ function deltaSummaryText(company: WatchlistCompanyRecord): string {
   return parts.join(', ');
 }
 
+function reachabilityLabel(reachabilityScore: number, confidence: ContactConfidenceLevel): string {
+  if (reachabilityScore >= 55 || confidence === 'high') {
+    return 'HIGH REACHABILITY';
+  }
+  if (reachabilityScore >= 25 || confidence === 'medium') {
+    return 'MEDIUM REACHABILITY';
+  }
+  return 'LOW REACHABILITY';
+}
+
 export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessage, onRefresh }: Props): JSX.Element {
   if (!company) {
     return (
@@ -118,6 +128,7 @@ export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessa
           <div><strong>Priority Score:</strong> {company.priority_summary?.priority_score ?? company.delta_summary?.priority_score ?? 0}</div>
           <div><strong>Priority Reasons:</strong> {formatReasonCodes(company.priority_summary?.priority_reason_codes ?? company.delta_summary?.priority_reason_codes ?? [])}</div>
           <div><strong>Needs Review:</strong> {company.priority_summary?.needs_review ? 'Yes' : 'No'}</div>
+          <div><strong>Reachability:</strong> {reachabilityLabel(company.reachability_score, company.contact_confidence_level)}</div>
         </div>
         <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
           <div><strong>Category:</strong> {company.category}</div>
@@ -131,7 +142,16 @@ export function CompanyDetailConsole({ company, refreshStatus, refreshErrorMessa
       </article>
 
       <KeyPeoplePanel people={company.key_people} />
-      <ContactsPanel mainPhone={company.main_phone} publishedEmails={company.published_emails} emailPatternGuess={company.email_pattern_guess} />
+      <ContactsPanel
+        directPhones={company.direct_phones}
+        generalEmails={company.general_emails}
+        publishedEmails={company.published_emails}
+        contactPages={company.contact_pages}
+        leadershipPages={company.leadership_pages}
+        emailPatternGuess={company.email_pattern_guess}
+        contactConfidenceLevel={company.contact_confidence_level}
+        reachabilityScore={company.reachability_score}
+      />
       <RecentSignalsPanel signals={company.recent_signals} />
       <ProjectsLocationsPanel website={company.website} hqCity={company.hq_city} hqState={company.hq_state} recentProjects={company.recent_projects} />
       <SourceConfidencePanel sourceLinks={company.source_links} confidenceLevel={company.confidence_level} lastEnrichedAt={company.last_enriched_at} />

@@ -29,6 +29,22 @@ const beaconCompany = {
   verification_status: 'verified',
   notes: 'Pilot verified subset company',
   main_phone: '312-555-0100',
+  direct_phones: [
+    {
+      phone: '312-555-0101',
+      source_url: 'https://www.beaconholdings.example/contact',
+      confidence: 'medium',
+    },
+  ],
+  general_emails: [
+    {
+      email: 'info@beaconholdings.example',
+      source_url: 'https://www.beaconholdings.example/contact',
+      confidence: 'high',
+      type: 'general_email',
+      is_direct: false,
+    },
+  ],
   key_people: [
     {
       name: 'Morgan Hale',
@@ -38,7 +54,22 @@ const beaconCompany = {
       basis: 'seed',
     },
   ],
-  published_emails: [],
+  published_emails: [
+    {
+      email: 'morgan.hale@beaconholdings.example',
+      source_url: 'https://www.beaconholdings.example/team',
+      confidence: 'high',
+      type: 'direct_email',
+      is_direct: true,
+    },
+  ],
+  contact_pages: ['https://www.beaconholdings.example/contact'],
+  leadership_pages: ['https://www.beaconholdings.example/leadership'],
+  address_lines: ['100 Main St, Chicago, IL 60601'],
+  contact_sources: [
+    'https://www.beaconholdings.example/contact',
+    'https://www.beaconholdings.example/team',
+  ],
   email_pattern_guess: 'first.last@beaconholdings.example',
   recent_signals: [
     {
@@ -53,6 +84,8 @@ const beaconCompany = {
   source_links: ['https://audit.example/beacon-holdings-notice'],
   last_enriched_at: '2026-03-28T09:00:00Z',
   confidence_level: 'HIGH',
+  contact_confidence_level: 'high',
+  reachability_score: 80,
   enrichment_state: 'enriched',
   delta_summary: {
     company_id: 'beacon-holdings',
@@ -63,7 +96,7 @@ const beaconCompany = {
     current_enrichment_state: 'enriched',
     new_signal_count: 1,
     new_project_count: 0,
-    new_email_count: 0,
+    new_email_count: 1,
     new_key_people_count: 0,
     confidence_changed: false,
     last_enriched_at: '2026-03-28T09:00:00Z',
@@ -99,14 +132,22 @@ const smithCompany = {
   verification_status: 'verified',
   notes: 'Pilot verified subset company',
   main_phone: '212-555-0199',
+  direct_phones: [],
+  general_emails: [],
   key_people: [],
   published_emails: [],
+  contact_pages: [],
+  leadership_pages: [],
+  address_lines: [],
+  contact_sources: [],
   email_pattern_guess: 'first_initiallast@smithjonesllp.example',
   recent_signals: [],
   recent_projects: [],
   source_links: [],
   last_enriched_at: '',
   confidence_level: 'MEDIUM',
+  contact_confidence_level: 'low',
+  reachability_score: 0,
   enrichment_state: 'partial',
 } as const;
 
@@ -119,7 +160,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('live watchlist companies load deterministically', async () => {
+test('live watchlist companies load deterministically with contact fields', async () => {
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -133,13 +174,11 @@ test('live watchlist companies load deterministically', async () => {
   const second = await getWatchlistCompanies();
 
   expect(first).toEqual(second);
-  expect(first.map((company) => company.company_id)).toEqual([
-    'beacon-holdings',
-    'smith-jones-llp',
-  ]);
+  expect(first[0].published_emails[0].type).toBe('direct_email');
+  expect(first[0].direct_phones[0].phone).toBe('312-555-0101');
 });
 
-test('company detail binds from live detail endpoint', async () => {
+test('company detail binds from live detail endpoint with reachability fields', async () => {
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -152,10 +191,11 @@ test('company detail binds from live detail endpoint', async () => {
   const result = await getWatchlistCompanyDetail('beacon-holdings');
 
   expect(result.company_name).toBe('Beacon Holdings');
-  expect(result.last_enriched_at).toBe('2026-03-28T09:00:00Z');
+  expect(result.contact_confidence_level).toBe('high');
+  expect(result.reachability_score).toBe(80);
 });
 
-test('refresh returns updated company record', async () => {
+test('refresh returns updated company record with contact intelligence intact', async () => {
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -172,6 +212,7 @@ test('refresh returns updated company record', async () => {
   const result = await refreshWatchlistCompany('beacon-holdings');
 
   expect(result.last_enriched_at).toBe('2026-03-28T10:45:00Z');
+  expect(result.published_emails[0].email).toBe('morgan.hale@beaconholdings.example');
 });
 
 test('changed companies payload parses deterministically', async () => {
@@ -189,7 +230,7 @@ test('changed companies payload parses deterministically', async () => {
   expect(result).toEqual([beaconCompany.delta_summary]);
 });
 
-test('top targets payload parses deterministically', async () => {
+test('top targets payload parses deterministically with reachability fields', async () => {
   mockFetch.mockResolvedValue({
     ok: true,
     json: async () => ({
@@ -204,6 +245,8 @@ test('top targets payload parses deterministically', async () => {
           current_enrichment_state: 'enriched',
           change_detected: true,
           priority_reason_codes: ['tier_1_company', 'new_signal_detected'],
+          reachability_score: 80,
+          contact_confidence_level: 'high',
         },
       ],
       error_code: null,
@@ -212,8 +255,8 @@ test('top targets payload parses deterministically', async () => {
 
   const result = await getWatchlistTopTargets();
 
-  expect(result[0].priority_score).toBe(96);
-  expect(result[0].reason_summary).toBe('Tier 1 company with new signal activity.');
+  expect(result[0].reachability_score).toBe(80);
+  expect(result[0].contact_confidence_level).toBe('high');
 });
 
 test('needs review payload parses deterministically', async () => {

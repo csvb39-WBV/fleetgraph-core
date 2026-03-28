@@ -46,8 +46,16 @@ def _artifact(company_name: str) -> dict[str, object]:
         "category": "General Contractor",
         "segment": "Large National",
         "key_people": [{"name": "Jane Doe", "title": "CEO", "source_url": "https://example.com/leadership", "confidence": "high"}],
-        "published_emails": [{"email": "jane.doe@example.com", "source_url": "https://example.com/contact", "confidence": "high"}],
+        "direct_phones": [{"phone": "(212) 555-0100", "source_url": "https://example.com/contact", "confidence": "medium", "type": "phone", "is_direct": True}],
+        "general_emails": [],
+        "published_emails": [{"email": "jane.doe@example.com", "source_url": "https://example.com/contact", "confidence": "high", "type": "direct_email", "is_direct": True}],
+        "contact_pages": ["https://example.com/contact"],
+        "leadership_pages": ["https://example.com/leadership"],
+        "address_lines": ["120 West 45th Street", "New York, NY 10036"],
+        "contact_sources": ["https://example.com/contact", "https://example.com/leadership"],
         "email_pattern_guess": None,
+        "contact_confidence_level": "high",
+        "reachability_score": 70,
         "recent_signals": [{"event_summary": "Investigation announced", "source_url": "https://example.com/signal", "source_provider": "rss_news", "confidence": "medium"}],
         "recent_projects": [],
         "source_links": ["https://example.com/contact"],
@@ -86,6 +94,8 @@ def test_seed_artifact_merge_and_state_derivation_are_deterministic(tmp_path: pa
     assert first == second
     assert first["enrichment_state"] == "enriched"
     assert first["artifact_status"] == "ok"
+    assert first["reachability_score"] == 70
+    assert first["contact_confidence_level"] == "high"
     assert derive_enrichment_state(company, None) == "seed_only"
     partial_artifact = dict(artifact)
     partial_artifact["published_emails"] = []
@@ -107,6 +117,7 @@ def test_list_watchlist_company_records_reads_real_artifacts_in_stable_order(tmp
     assert enriched_company["enrichment_state"] == "enriched"
     assert enriched_company["last_enriched_at"] == "2026-03-28"
     assert enriched_company["artifact_status"] == "ok"
+    assert enriched_company["contact_pages"] == ["https://example.com/contact"]
 
 
 def test_get_watchlist_company_record_supports_seed_only_invalid_and_unknown_company(tmp_path: pathlib.Path) -> None:
@@ -118,6 +129,9 @@ def test_get_watchlist_company_record_supports_seed_only_invalid_and_unknown_com
     assert seed_only["company"]["enrichment_state"] == "seed_only"
     assert seed_only["company"]["last_enriched_at"] is None
     assert seed_only["company"]["artifact_status"] == "missing_artifact"
+    assert seed_only["company"]["direct_phones"] == []
+    assert seed_only["company"]["general_emails"] == []
+    assert seed_only["company"]["reachability_score"] == 0
 
     invalid_path = pathlib.Path(runtime_config["output_directory"]).resolve() / "watchlist"
     invalid_path.mkdir(parents=True, exist_ok=True)

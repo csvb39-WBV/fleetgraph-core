@@ -1,6 +1,6 @@
 import React from 'react';
 
-import type { WatchlistTopTarget } from '../../services/watchlistApi';
+import type { ContactConfidenceLevel, WatchlistTopTarget } from '../../services/watchlistApi';
 
 type Props = {
   topTargets: WatchlistTopTarget[];
@@ -15,6 +15,19 @@ function priorityBandStyle(priorityBand: WatchlistTopTarget['priority_band']): {
     return { background: '#fef3c7', color: '#92400e' };
   }
   return { background: '#e0f2fe', color: '#075985' };
+}
+
+function reachabilityLabel(
+  reachabilityScore: number | undefined,
+  contactConfidenceLevel: ContactConfidenceLevel | undefined,
+): string {
+  if ((reachabilityScore ?? 0) >= 55 || contactConfidenceLevel === 'high') {
+    return 'HIGH REACHABILITY';
+  }
+  if ((reachabilityScore ?? 0) >= 25 || contactConfidenceLevel === 'medium') {
+    return 'MEDIUM REACHABILITY';
+  }
+  return 'LOW REACHABILITY';
 }
 
 export function TopTargetsPanel({ topTargets, onSelectCompany }: Props): JSX.Element {
@@ -50,6 +63,9 @@ export function TopTargetsPanel({ topTargets, onSelectCompany }: Props): JSX.Ele
                 <div style={{ marginTop: '8px', fontSize: '14px', color: '#334155' }}>{target.reason_summary}</div>
                 <div style={{ marginTop: '8px', fontSize: '13px', color: '#475569' }}>
                   Score: {target.priority_score} - State: {target.current_enrichment_state} - Changed: {target.change_detected ? 'Yes' : 'No'}
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '13px', color: '#1d4ed8', fontWeight: 700 }}>
+                  {reachabilityLabel(target.reachability_score, target.contact_confidence_level)}
                 </div>
               </button>
             );

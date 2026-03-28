@@ -6,6 +6,8 @@ export type WatchlistEnrichmentState = 'seed_only' | 'partial' | 'enriched';
 export type WatchlistConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 export type WatchlistRefreshStatus = 'idle' | 'refreshing' | 'refresh_succeeded' | 'refresh_failed';
 export type WatchlistPriorityBand = 'HIGH' | 'MEDIUM' | 'LOW';
+export type ContactConfidenceLevel = 'high' | 'medium' | 'low';
+export type ContactType = 'direct_email' | 'general_email' | 'phone' | 'page' | 'pattern';
 
 export type WatchlistSeedCompany = {
   company_id: string;
@@ -49,16 +51,38 @@ export type WatchlistProject = {
   confidence: WatchlistConfidenceLevel;
 };
 
+export type WatchlistEmailContact = {
+  email: string;
+  source_url: string;
+  confidence: ContactConfidenceLevel;
+  type: 'direct_email' | 'general_email';
+  is_direct: boolean;
+};
+
+export type WatchlistPhoneContact = {
+  phone: string;
+  source_url: string;
+  confidence: ContactConfidenceLevel;
+};
+
 export type WatchlistCompanyRecord = WatchlistSeedCompany & {
   main_phone: string;
+  direct_phones: WatchlistPhoneContact[];
+  general_emails: WatchlistEmailContact[];
   key_people: WatchlistPerson[];
-  published_emails: string[];
+  published_emails: WatchlistEmailContact[];
+  contact_pages: string[];
+  leadership_pages: string[];
+  address_lines: string[];
+  contact_sources: string[];
   email_pattern_guess: string;
   recent_signals: WatchlistSignal[];
   recent_projects: WatchlistProject[];
   source_links: string[];
   last_enriched_at: string;
   confidence_level: WatchlistConfidenceLevel;
+  contact_confidence_level: ContactConfidenceLevel;
+  reachability_score: number;
   enrichment_state: WatchlistEnrichmentState;
   delta_summary?: WatchlistDeltaSummary;
   priority_summary?: WatchlistPrioritySummary;
@@ -103,6 +127,8 @@ export type WatchlistTopTarget = {
   current_enrichment_state: string;
   change_detected: boolean;
   priority_reason_codes: string[];
+  reachability_score?: number;
+  contact_confidence_level?: ContactConfidenceLevel;
 };
 
 export type WatchlistNeedsReviewItem = {
@@ -173,6 +199,10 @@ function isStringArray(value: unknown): value is string[] {
 
 function isConfidenceLevel(value: unknown): value is WatchlistConfidenceLevel {
   return value === 'HIGH' || value === 'MEDIUM' || value === 'LOW';
+}
+
+function isContactConfidenceLevel(value: unknown): value is ContactConfidenceLevel {
+  return value === 'high' || value === 'medium' || value === 'low';
 }
 
 function isPriorityTier(value: unknown): value is WatchlistPriorityTier {
@@ -264,11 +294,59 @@ function parseProject(value: unknown): WatchlistProject {
   };
 }
 
+function parseEmailContact(value: unknown, allowedType: 'direct_email' | 'general_email'): WatchlistEmailContact {
+  if (!isRecord(value)) {
+    throw new Error('Invalid email contact');
+  }
+  if (
+    !isString(value.email)
+    || !isString(value.source_url)
+    || !isContactConfidenceLevel(value.confidence)
+    || value.type !== allowedType
+    || typeof value.is_direct !== 'boolean'
+  ) {
+    throw new Error('Invalid email contact');
+  }
+
+  return {
+    email: value.email,
+    source_url: value.source_url,
+    confidence: value.confidence,
+    type: value.type,
+    is_direct: value.is_direct,
+  };
+}
+
+function parsePhoneContact(value: unknown): WatchlistPhoneContact {
+  if (!isRecord(value)) {
+    throw new Error('Invalid phone contact');
+  }
+  if (
+    !isString(value.phone)
+    || !isString(value.source_url)
+    || !isContactConfidenceLevel(value.confidence)
+  ) {
+    throw new Error('Invalid phone contact');
+  }
+
+  return {
+    phone: value.phone,
+    source_url: value.source_url,
+    confidence: value.confidence,
+  };
+}
+
 function cloneRecord(record: WatchlistCompanyRecord): WatchlistCompanyRecord {
   return {
     ...record,
+    direct_phones: record.direct_phones.map((phone) => ({ ...phone })),
+    general_emails: record.general_emails.map((email) => ({ ...email })),
     key_people: record.key_people.map((person) => ({ ...person })),
-    published_emails: [...record.published_emails],
+    published_emails: record.published_emails.map((email) => ({ ...email })),
+    contact_pages: [...record.contact_pages],
+    leadership_pages: [...record.leadership_pages],
+    address_lines: [...record.address_lines],
+    contact_sources: [...record.contact_sources],
     recent_signals: record.recent_signals.map((signal) => ({ ...signal })),
     recent_projects: record.recent_projects.map((project) => ({ ...project })),
     source_links: [...record.source_links],
@@ -326,14 +404,22 @@ function parseCompanyRecord(value: unknown): WatchlistCompanyRecord {
     || !isVerificationStatus(value.verification_status)
     || !isString(value.notes)
     || !isString(value.main_phone)
+    || !Array.isArray(value.direct_phones)
+    || !Array.isArray(value.general_emails)
     || !Array.isArray(value.key_people)
-    || !isStringArray(value.published_emails)
+    || !Array.isArray(value.published_emails)
+    || !Array.isArray(value.contact_pages)
+    || !Array.isArray(value.leadership_pages)
+    || !Array.isArray(value.address_lines)
+    || !Array.isArray(value.contact_sources)
     || !isString(value.email_pattern_guess)
     || !Array.isArray(value.recent_signals)
     || !Array.isArray(value.recent_projects)
-    || !isStringArray(value.source_links)
+    || !Array.isArray(value.source_links)
     || !isString(value.last_enriched_at)
     || !isConfidenceLevel(value.confidence_level)
+    || !isContactConfidenceLevel(value.contact_confidence_level)
+    || !isNumber(value.reachability_score)
     || !isEnrichmentState(value.enrichment_state)
   ) {
     throw new Error('Invalid watchlist company');
@@ -356,14 +442,22 @@ function parseCompanyRecord(value: unknown): WatchlistCompanyRecord {
     verification_status: value.verification_status,
     notes: value.notes,
     main_phone: value.main_phone,
+    direct_phones: value.direct_phones.map((phone) => parsePhoneContact(phone)),
+    general_emails: value.general_emails.map((email) => parseEmailContact(email, 'general_email')),
     key_people: value.key_people.map((person) => parsePerson(person)),
-    published_emails: [...value.published_emails],
+    published_emails: value.published_emails.map((email) => parseEmailContact(email, 'direct_email')),
+    contact_pages: [...value.contact_pages],
+    leadership_pages: [...value.leadership_pages],
+    address_lines: [...value.address_lines],
+    contact_sources: [...value.contact_sources],
     email_pattern_guess: value.email_pattern_guess,
     recent_signals: value.recent_signals.map((signal) => parseSignal(signal)),
     recent_projects: value.recent_projects.map((project) => parseProject(project)),
     source_links: [...value.source_links],
     last_enriched_at: value.last_enriched_at,
     confidence_level: value.confidence_level,
+    contact_confidence_level: value.contact_confidence_level,
+    reachability_score: value.reachability_score,
     enrichment_state: value.enrichment_state,
     delta_summary: value.delta_summary === undefined ? undefined : parseDeltaSummary(value.delta_summary),
     priority_summary: value.priority_summary === undefined ? undefined : parsePrioritySummary(value.priority_summary),
@@ -466,6 +560,8 @@ function parseTopTarget(value: unknown): WatchlistTopTarget {
     current_enrichment_state: value.current_enrichment_state,
     change_detected: value.change_detected,
     priority_reason_codes: [...value.priority_reason_codes],
+    reachability_score: isNumber(value.reachability_score) ? value.reachability_score : undefined,
+    contact_confidence_level: isContactConfidenceLevel(value.contact_confidence_level) ? value.contact_confidence_level : undefined,
   };
 }
 

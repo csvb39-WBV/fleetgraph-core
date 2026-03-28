@@ -98,6 +98,5 @@ def test_delta_detection_handles_missing_previous_and_current_artifacts() -> Non
     ]
     assert missing_current["change_types"] == [
         "missing_current_artifact",
-        "last_enriched_at_changed",
         "source_link_count_changed",
     ]

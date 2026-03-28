@@ -42,7 +42,7 @@ def _runtime_config(tmp_path: pathlib.Path) -> dict[str, object]:
 def _artifact(company_name: str, *, signal_title: str, email: str | None = None, last_enriched_at: str = "2026-03-28") -> dict[str, object]:
     published_emails = []
     if email is not None:
-        published_emails.append({"email": email, "source_url": "https://example.com/contact", "confidence": "high"})
+        published_emails.append({"email": email, "source_url": "https://example.com/contact", "confidence": "high", "type": "direct_email", "is_direct": True})
     return {
         "company_name": company_name,
         "website": "https://www.example.com/",
@@ -53,8 +53,16 @@ def _artifact(company_name: str, *, signal_title: str, email: str | None = None,
         "category": "General Contractor",
         "segment": "Large National",
         "key_people": [{"name": "Jane Doe", "title": "CEO", "source_url": "https://example.com/leadership", "confidence": "high"}],
+        "direct_phones": [{"phone": "(212) 555-0100", "source_url": "https://example.com/contact", "confidence": "medium", "type": "phone", "is_direct": True}],
+        "general_emails": [],
         "published_emails": published_emails,
+        "contact_pages": ["https://example.com/contact"],
+        "leadership_pages": ["https://example.com/leadership"],
+        "address_lines": ["120 West 45th Street", "New York, NY 10036"],
+        "contact_sources": ["https://example.com/contact", "https://example.com/leadership"],
         "email_pattern_guess": None if email is not None else "first.last@example.com",
+        "contact_confidence_level": "high" if email is not None else "medium",
+        "reachability_score": 70 if email is not None else 30,
         "recent_signals": [{"event_summary": signal_title, "source_url": "https://example.com/signal", "source_provider": "rss_news", "confidence": "medium"}],
         "recent_projects": [],
         "source_links": ["https://example.com/signal"],
@@ -103,7 +111,7 @@ def test_changed_top_targets_and_needs_review_surfaces_are_stable(tmp_path: path
     previous_company = get_watchlist_company_record(records[0]["company_id"], runtime_config=runtime_config)["company"]
     current_company = dict(previous_company)
     current_company["recent_signals"] = previous_company["recent_signals"] + [{"event_summary": "Lawsuit filed", "source_url": "https://example.com/lawsuit"}]
-    current_company["published_emails"] = previous_company["published_emails"] + [{"email": "legal@example.com", "source_url": "https://example.com/legal"}]
+    current_company["published_emails"] = previous_company["published_emails"] + [{"email": "legal@example.com", "source_url": "https://example.com/legal", "confidence": "high", "type": "direct_email", "is_direct": True}]
     current_company["last_enriched_at"] = "2026-03-28"
     delta_summary = build_company_delta_summary(previous_company, current_company)
     scored = score_watchlist_company(current_company, delta_summary=delta_summary, reference_date="2026-03-28")
