@@ -4,10 +4,11 @@ import pytest
 
 from fleetgraph.connectors.source_strategy import (
     WebSearchConnectorError,
+    filter_results,
+    has_required_event_terms,
     is_educational_result,
     retrieve_results,
     retrieve_results_with_metadata,
-    suppress_educational_results,
 )
 
 
@@ -110,10 +111,10 @@ def test_source_strategy_deterministic_selection() -> None:
     assert first == second
 
 
-def test_educational_titles_are_suppressed() -> None:
+def test_educational_results_fully_removed() -> None:
     result_item = {
         "title": "Construction litigation guide explained",
-        "snippet": "Complete guide and FAQ for contractor disputes.",
+        "snippet": "Lawsuit filed against Atlas Build Group.",
         "url": "https://example.com/guide",
         "source_provider": "duckduckgo_api",
     }
@@ -121,24 +122,54 @@ def test_educational_titles_are_suppressed() -> None:
     assert is_educational_result(result_item) is True
 
 
-def test_event_headlines_are_not_suppressed() -> None:
-    result_item = {
-        "title": "Atlas Build Group lawsuit filed after project delay",
-        "snippet": "Federal complaint filed against Atlas Build Group.",
-        "url": "https://example.com/event",
-        "source_provider": "duckduckgo_api",
-    }
+def test_hard_block_educational_results_even_with_event_terms() -> None:
+    results, suppressed_count = filter_results(
+        [
+            {
+                "title": "FAQ: Atlas Build Group lawsuit filed after project delay",
+                "snippet": "Complaint filed against Atlas Build Group.",
+                "url": "https://example.com/faq",
+                "source_provider": "duckduckgo_api",
+            }
+        ]
+    )
 
-    assert is_educational_result(result_item) is False
+    assert results == []
+    assert suppressed_count == 1
+
+
+def test_event_validation_works() -> None:
+    assert has_required_event_terms(
+        {
+            "title": "Atlas Build Group lawsuit filed after project delay",
+            "snippet": "Federal complaint filed against Atlas Build Group.",
+            "url": "https://example.com/event",
+            "source_provider": "duckduckgo_api",
+        }
+    ) is True
+    assert has_required_event_terms(
+        {
+            "title": "Atlas Build Group quarterly revenue update",
+            "snippet": "Financial results posted.",
+            "url": "https://example.com/revenue",
+            "source_provider": "duckduckgo_api",
+        }
+    ) is False
 
 
 def test_mixed_batches_return_only_event_relevant_items() -> None:
-    results, suppressed_count = suppress_educational_results(
+    results, suppressed_count = filter_results(
         [
             {
                 "title": "Construction litigation guide explained",
-                "snippet": "Complete guide and FAQ for contractor disputes.",
+                "snippet": "Complete guide for contractors.",
                 "url": "https://example.com/guide",
+                "source_provider": "duckduckgo_api",
+            },
+            {
+                "title": "Atlas Build Group quarterly revenue update",
+                "snippet": "Financial results posted.",
+                "url": "https://example.com/revenue",
                 "source_provider": "duckduckgo_api",
             },
             {

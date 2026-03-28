@@ -10,7 +10,7 @@ from fleetgraph.runtime.output_persistence import resolve_output_paths, write_de
 from fleetgraph.runtime.run_manifest import build_run_manifest
 from fleetgraph.runtime.runtime_config import build_runtime_config
 from fleetgraph.signals.query_library import get_ordered_query_definitions
-from fleetgraph.signals.signal_extractor import extract_signal
+from fleetgraph.signals.signal_extractor import extract_signal, get_signal_rejection_reason
 from fleetgraph.signals.signal_filter_engine import filter_signals
 from fleetgraph.signals.signal_scoring_engine import score_signals
 
@@ -20,6 +20,7 @@ def _build_debug_report(
     query_definitions: list[dict[str, object]],
     query_execution: list[dict[str, object]],
     suppressed_result_count: int,
+    filtered_out_generic_company_count: int,
     raw_results: list[dict[str, str]],
     extracted_signals: list[dict[str, object]],
     deduplicated_signals: list[dict[str, object]],
@@ -38,6 +39,7 @@ def _build_debug_report(
             for query_definition in query_definitions
         ],
         "suppressed_result_count": suppressed_result_count,
+        "filtered_out_generic_company_count": filtered_out_generic_company_count,
         "query_execution": [
             {
                 "query": entry["query"],
@@ -108,6 +110,7 @@ def execute_signal_pipeline(
     cache_misses = 0
     source_success_count = 0
     suppressed_result_count = 0
+    filtered_out_generic_company_count = 0
     raw_results: list[dict[str, str]] = []
     extracted_signals: list[dict[str, object]] = []
     deduplicated_signals: list[dict[str, object]] = []
@@ -174,12 +177,17 @@ def execute_signal_pipeline(
                         "source_provider": result_item["source_provider"],
                     }
                 )
-                extracted_signals.append(
-                    extract_signal(
-                        result_item,
-                        signal_type=query_definition["signal_type"],
-                    )
+                signal = extract_signal(
+                    result_item,
+                    signal_type=query_definition["signal_type"],
                 )
+                rejection_reason = get_signal_rejection_reason(signal)
+                if rejection_reason == "generic_company":
+                    filtered_out_generic_company_count += 1
+                    continue
+                if rejection_reason is not None:
+                    continue
+                extracted_signals.append(signal)
 
         deduplicated_signals = deduplicate_signals(extracted_signals)
         if len(deduplicated_signals) == 0:
@@ -203,6 +211,7 @@ def execute_signal_pipeline(
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
                 "suppressed_result_count": suppressed_result_count,
+                "filtered_out_generic_company_count": filtered_out_generic_company_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -218,6 +227,7 @@ def execute_signal_pipeline(
             query_definitions=query_definitions,
             query_execution=query_execution,
             suppressed_result_count=suppressed_result_count,
+            filtered_out_generic_company_count=filtered_out_generic_company_count,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,
@@ -245,6 +255,7 @@ def execute_signal_pipeline(
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
                 "suppressed_result_count": suppressed_result_count,
+                "filtered_out_generic_company_count": filtered_out_generic_company_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -260,6 +271,7 @@ def execute_signal_pipeline(
             query_definitions=query_definitions,
             query_execution=query_execution,
             suppressed_result_count=suppressed_result_count,
+            filtered_out_generic_company_count=filtered_out_generic_company_count,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,

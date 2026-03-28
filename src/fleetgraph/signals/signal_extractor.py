@@ -57,10 +57,36 @@ _TRAILING_ENTITY_EXCLUSIONS = {
     "project",
     "review",
 }
+GENERIC_COMPANY_TERMS = (
+    "company",
+    "contractor",
+    "real estate company",
+    "construction company",
+    "service company",
+)
+REQUIRED_EVENT_TERMS = (
+    "sued",
+    "lawsuit",
+    "filed",
+    "investigation",
+    "subpoena",
+    "default",
+    "delay",
+    "dispute",
+    "terminated",
+    "halted",
+)
+_NORMALIZED_GENERIC_COMPANY_TERMS = frozenset(
+    " ".join(term.lower().split()) for term in GENERIC_COMPANY_TERMS
+)
 
 
 def _collapse_whitespace(value: str) -> str:
     return " ".join(value.split())
+
+
+def _normalize_text(value: str) -> str:
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
 
 
 def _extract_date_detected(text: str) -> str:
@@ -117,6 +143,8 @@ def _extract_company(text: str) -> str:
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Builders?)\b",
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Services)\b",
         r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Group)\b",
+        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Holdings)\b",
+        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Logistics)\b",
     )
     for pattern in corporate_patterns:
         match = re.search(pattern, text)
@@ -166,3 +194,13 @@ def extract_signal(
         "priority": None,
         "raw_text": raw_text,
     }
+
+
+def get_signal_rejection_reason(signal: dict[str, object]) -> str | None:
+    normalized_company = _normalize_text(str(signal["company"]))
+    normalized_title = _normalize_text(str(signal["event_summary"]))
+    if normalized_company == "unknown" or normalized_company in _NORMALIZED_GENERIC_COMPANY_TERMS:
+        return "generic_company"
+    if not any(term in normalized_title for term in REQUIRED_EVENT_TERMS):
+        return "missing_event_term"
+    return None

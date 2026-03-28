@@ -5,7 +5,7 @@ from fleetgraph.control.dedup_engine import deduplicate_signals
 from fleetgraph.control.query_budget_controller import validate_query_budget
 from fleetgraph.connectors.web_search_connector import WebSearchConnector
 from fleetgraph.signals.query_library import get_ordered_query_definitions
-from fleetgraph.signals.signal_extractor import extract_signal
+from fleetgraph.signals.signal_extractor import extract_signal, get_signal_rejection_reason
 
 
 def run_signal_acquisition(
@@ -30,10 +30,11 @@ def run_signal_acquisition(
             cached_results = connector.search(query, result_limit=result_limit)
             cache.set(query, cached_results)
         for result_item in cached_results:
-            signals.append(
-                extract_signal(
-                    result_item,
-                    signal_type=query_definition["signal_type"],
-                )
+            signal = extract_signal(
+                result_item,
+                signal_type=query_definition["signal_type"],
             )
+            if get_signal_rejection_reason(signal) is not None:
+                continue
+            signals.append(signal)
     return deduplicate_signals(signals)

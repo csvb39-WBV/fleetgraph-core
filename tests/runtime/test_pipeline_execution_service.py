@@ -24,7 +24,7 @@ def _runtime_config(tmp_path: pathlib.Path, **overrides: object) -> dict[str, ob
         "run_date": "2026-03-27",
         "output_directory": str(tmp_path / "outputs"),
         "cache_path": str(tmp_path / "cache" / "signal_cache.json"),
-        "max_queries_per_run": 7,
+        "max_queries_per_run": 14,
         "max_results_per_query": 5,
         "connector_timeout_seconds": 5.0,
         "connector_max_retries": 1,
@@ -116,13 +116,14 @@ def test_runtime_execution_success_path(tmp_path: pathlib.Path) -> None:
 
     assert result["ok"] is True
     assert result["manifest"]["status"] == "success"
-    assert result["manifest"]["query_count_executed"] == 7
+    assert result["manifest"]["query_count_executed"] == 14
     assert result["manifest"]["cache_hits"] == 0
-    assert result["manifest"]["cache_misses"] == 7
-    assert result["manifest"]["source_success_count"] == 7
+    assert result["manifest"]["cache_misses"] == 14
+    assert result["manifest"]["source_success_count"] == 14
     assert result["manifest"]["suppressed_result_count"] == 0
-    assert result["manifest"]["raw_results_count"] == 7
-    assert result["manifest"]["extracted_signal_count"] == 7
+    assert result["manifest"]["filtered_out_generic_company_count"] == 0
+    assert result["manifest"]["raw_results_count"] == 14
+    assert result["manifest"]["extracted_signal_count"] == 14
     assert result["manifest"]["deduplicated_signal_count"] == 7
     assert result["manifest"]["retained_signal_count"] >= 5
     assert result["manifest"]["exported_signal_count"] >= 2
@@ -131,14 +132,15 @@ def test_runtime_execution_success_path(tmp_path: pathlib.Path) -> None:
     assert pathlib.Path(result["manifest_path"]).exists() is True
     assert pathlib.Path(result["debug_path"]).exists() is True
     assert debug_payload["suppressed_result_count"] == 0
-    assert debug_payload["raw_results_count"] == 7
-    assert debug_payload["extracted_signal_count"] == 7
+    assert debug_payload["filtered_out_generic_company_count"] == 0
+    assert debug_payload["raw_results_count"] == 14
+    assert debug_payload["extracted_signal_count"] == 14
     assert debug_payload["deduplicated_signal_count"] == 7
     assert debug_payload["retained_signal_count"] >= 5
     assert debug_payload["primary_signal_count"] >= 2
     assert len(debug_payload["sample_raw_results"]) == 5
     assert len(debug_payload["sample_extracted_signals"]) == 5
-    assert len(debug_payload["query_execution"]) == 7
+    assert len(debug_payload["query_execution"]) == 14
     assert debug_payload["query_execution"][0] == {
         "query": "lawsuit filed against contractor company major project",
         "source_used": "duckduckgo_api",
@@ -211,9 +213,9 @@ def test_zero_primary_signals_detected(tmp_path: pathlib.Path, monkeypatch: pyte
     )
 
     assert result["ok"] is False
-    assert result["error_code"] == "no_primary_signals_detected"
+    assert result["error_code"] == "no_signals_detected"
     assert result["manifest"]["status"] == "failed"
-    assert result["manifest"]["error_code"] == "no_primary_signals_detected"
+    assert result["manifest"]["error_code"] == "no_signals_detected"
 
 
 def test_connector_empty_manifest_failure_output(tmp_path: pathlib.Path) -> None:

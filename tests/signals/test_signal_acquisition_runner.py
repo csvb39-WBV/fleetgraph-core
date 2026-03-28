@@ -49,13 +49,13 @@ def test_acquisition_runner_deterministic_output(tmp_path: Path) -> None:
     first = run_signal_acquisition(
         cache=cache,
         connector=connector,
-        max_queries_per_run=7,
+        max_queries_per_run=14,
         max_results_per_query=5,
     )
     second = run_signal_acquisition(
         cache=ResultCache(tmp_path / "cache.json", current_time=100),
         connector=WebSearchConnector(transport=transport),
-        max_queries_per_run=7,
+        max_queries_per_run=14,
         max_results_per_query=5,
     )
 
@@ -77,7 +77,7 @@ def test_acquisition_runner_cache_path_behavior(tmp_path: Path) -> None:
     _ = run_signal_acquisition(
         cache=ResultCache(cache_path, current_time=100),
         connector=connector,
-        max_queries_per_run=7,
+        max_queries_per_run=14,
         max_results_per_query=5,
     )
     first_call_count = len(transport.calls)
@@ -85,7 +85,7 @@ def test_acquisition_runner_cache_path_behavior(tmp_path: Path) -> None:
     _ = run_signal_acquisition(
         cache=ResultCache(cache_path, current_time=200),
         connector=WebSearchConnector(transport=transport),
-        max_queries_per_run=7,
+        max_queries_per_run=14,
         max_results_per_query=5,
     )
 
@@ -97,7 +97,7 @@ def test_acquisition_runner_output_contract(tmp_path: Path) -> None:
     signals = run_signal_acquisition(
         cache=ResultCache(tmp_path / "cache.json", current_time=100),
         connector=WebSearchConnector(transport=transport),
-        max_queries_per_run=7,
+        max_queries_per_run=14,
         max_results_per_query=5,
     )
 

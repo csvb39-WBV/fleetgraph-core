@@ -20,8 +20,8 @@ def _signal(
     company: str = "Atlas Build Co",
     signal_type: str = "project_distress",
     event_summary: str = "Project dispute reported",
-    source: str = "city-record.example",
-    date_detected: str = "2026-03-27",
+    source: str = "duckduckgo_html://search-result",
+    date_detected: str = "2026-03-28",
     raw_text: str = "Project dispute reported for contractor Atlas Build Co.",
 ) -> dict[str, object]:
     return {
@@ -50,37 +50,56 @@ def test_scoring_correctness() -> None:
     assert [signal["confidence_score"] for signal in result] == [5, 5, 4, 4, 2]
 
 
-def test_scoring_supports_legal_and_broader_entity_universe() -> None:
+def test_scoring_excludes_generic_companies() -> None:
     signals = [
-        _signal(
-            company="Smith & Jones LLP",
-            signal_type="litigation",
-            event_summary="Document production order entered",
-            raw_text="Document production order entered in litigation with outside counsel Smith & Jones LLP.",
-        ),
-        _signal(
-            company="Atlas Services Group",
-            signal_type="audit",
-            event_summary="Audit notice posted",
-            raw_text="Audit notice posted for Atlas Services Group.",
-        ),
-        _signal(
-            company="Beacon Holdings",
-            signal_type="government",
-            event_summary="Internal investigation opened",
-            raw_text="Internal investigation opened with legal department review at Beacon Holdings.",
-        ),
-        _signal(
-            company="Gray Counsel PLLC",
-            signal_type="litigation",
-            event_summary="Subpoena issued",
-            raw_text="Subpoena issued to outside counsel Gray Counsel PLLC for document collection.",
-        ),
+        _signal(company="unknown", signal_type="litigation", event_summary="Lawsuit filed", raw_text="Unknown lawsuit filed"),
+        _signal(company="company", signal_type="audit", event_summary="Audit notice posted", raw_text="Audit notice posted for company"),
+        _signal(company="Atlas Services Group", signal_type="audit", event_summary="Audit notice posted", raw_text="Audit notice posted for Atlas Services Group"),
     ]
 
     result = score_signals(signals)
 
-    assert [signal["confidence_score"] for signal in result] == [5, 4, 4, 5]
+    assert result == [
+        {
+            "company": "Atlas Services Group",
+            "signal_type": "audit",
+            "event_summary": "Audit notice posted",
+            "source": "duckduckgo_html://search-result",
+            "date_detected": "2026-03-28",
+            "confidence_score": 4,
+            "priority": None,
+            "raw_text": "Audit notice posted for Atlas Services Group",
+        }
+    ]
+
+
+def test_rss_news_signals_are_boosted() -> None:
+    signals = [
+        _signal(
+            company="Beacon Holdings",
+            signal_type="audit",
+            source="rss_news://industry-feed",
+            event_summary="Audit notice posted",
+            raw_text="Audit notice posted for Beacon Holdings.",
+        )
+    ]
+
+    result = score_signals(signals)
+
+    assert result[0]["confidence_score"] == 5
+
+
+def test_urgent_legal_events_score_at_top_band() -> None:
+    signals = [
+        _signal(company="Smith & Jones LLP", signal_type="litigation", event_summary="Document production ordered", raw_text="Document production ordered for outside counsel Smith & Jones LLP."),
+        _signal(company="Gray Counsel PLLC", signal_type="litigation", event_summary="Subpoena issued", raw_text="Subpoena issued to outside counsel Gray Counsel PLLC."),
+        _signal(company="Atlas Services Group", signal_type="government", event_summary="Investigation opened", raw_text="Investigation opened for Atlas Services Group."),
+        _signal(company="North Harbor Developers", signal_type="government", event_summary="Default notice filed", raw_text="Default notice filed against North Harbor Developers."),
+    ]
+
+    result = score_signals(signals)
+
+    assert [signal["confidence_score"] for signal in result] == [5, 5, 5, 5]
 
 
 def test_input_validation() -> None:
@@ -96,8 +115,8 @@ def test_output_contract_validation() -> None:
             "company": "Atlas Build Co",
             "signal_type": "project_distress",
             "event_summary": "Project dispute reported",
-            "source": "city-record.example",
-            "date_detected": "2026-03-27",
+            "source": "duckduckgo_html://search-result",
+            "date_detected": "2026-03-28",
             "confidence_score": 4,
             "priority": None,
             "raw_text": "Project dispute reported for contractor Atlas Build Co.",

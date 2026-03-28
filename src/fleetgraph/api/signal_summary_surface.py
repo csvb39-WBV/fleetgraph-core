@@ -14,10 +14,20 @@ _REQUIRED_SIGNAL_KEYS = (
 )
 _ALLOWED_SIGNAL_TYPES = ("audit", "government", "litigation", "project_distress")
 _ALLOWED_PRIORITIES = ("HIGH", "MEDIUM")
+_ALLOWED_SOURCE_TYPES = ("rss_news", "duckduckgo_html", "duckduckgo_api")
 
 
 def _is_non_empty_string(value: object) -> bool:
     return isinstance(value, str) and value.strip() != ""
+
+
+def _source_type_key(source: str) -> str:
+    normalized_source = source.strip().lower()
+    if "rss" in normalized_source or "news" in normalized_source:
+        return "rss_news"
+    if "duckduckgo" in normalized_source and "api" in normalized_source:
+        return "duckduckgo_api"
+    return "duckduckgo_html"
 
 
 def _validate_signal(signal: object) -> None:
@@ -43,6 +53,8 @@ def _validate_signal(signal: object) -> None:
         raise ValueError("signal_type must be a supported signal type")
     if signal["priority"] not in _ALLOWED_PRIORITIES:
         raise ValueError("priority must be HIGH or MEDIUM")
+    if _source_type_key(str(signal["source"])) not in _ALLOWED_SOURCE_TYPES:
+        raise ValueError("source must map to a supported source type")
 
     confidence_score = signal["confidence_score"]
     if not isinstance(confidence_score, int) or isinstance(confidence_score, bool):
@@ -64,15 +76,18 @@ def build_signal_summary(signals: list[dict[str, object]]) -> dict[str, object]:
 
     signal_type_counts = {signal_type: 0 for signal_type in _ALLOWED_SIGNAL_TYPES}
     priority_counts = {priority: 0 for priority in _ALLOWED_PRIORITIES}
+    source_counts = {source_type: 0 for source_type in _ALLOWED_SOURCE_TYPES}
     for signal in validated_signals:
         signal_type_counts[str(signal["signal_type"])] += 1
         priority_counts[str(signal["priority"])] += 1
+        source_counts[_source_type_key(str(signal["source"]))] += 1
 
     top_companies = sorted({str(signal["company"]).strip() for signal in validated_signals})
 
     return {
         "count_by_signal_type": signal_type_counts,
         "count_by_priority": priority_counts,
+        "count_by_source": source_counts,
         "total_exported_count": len(validated_signals),
         "top_companies": top_companies,
     }

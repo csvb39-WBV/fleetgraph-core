@@ -2,7 +2,7 @@
 
 import copy
 
-from fleetgraph.signals.signal_extractor import extract_signal
+from fleetgraph.signals.signal_extractor import extract_signal, get_signal_rejection_reason
 
 
 def _result_item(**overrides: str) -> dict[str, str]:
@@ -70,16 +70,62 @@ def test_signal_extraction_detects_company_from_capitalized_sequence() -> None:
     assert result["company"] == "Atlas Build Group"
 
 
-def test_signal_extraction_unresolved_company_fallback() -> None:
+def test_generic_company_signals_removed() -> None:
+    signal = {
+        "company": "company",
+        "signal_type": "litigation",
+        "event_summary": "lawsuit filed against company",
+        "source": "https://example.com/company",
+        "date_detected": "2026-03-26",
+        "confidence_score": None,
+        "priority": None,
+        "raw_text": "lawsuit filed against company",
+    }
+
+    assert get_signal_rejection_reason(signal) == "generic_company"
+
+
+def test_multi_word_generic_company_signals_removed() -> None:
+    signal = {
+        "company": "Real Estate Company",
+        "signal_type": "litigation",
+        "event_summary": "lawsuit filed against real estate company",
+        "source": "https://example.com/real-estate-company",
+        "date_detected": "2026-03-26",
+        "confidence_score": None,
+        "priority": None,
+        "raw_text": "lawsuit filed against real estate company",
+    }
+
+    assert get_signal_rejection_reason(signal) == "generic_company"
+
+
+def test_unknown_company_signals_removed() -> None:
     result = extract_signal(
         _result_item(
-            title="Mechanics lien filing posted",
+            title="Lawsuit filed after project delay",
             snippet="Filed on 2026-03-26 after payment dispute.",
         ),
         signal_type="litigation",
     )
 
     assert result["company"] == "unknown"
+    assert get_signal_rejection_reason(result) == "generic_company"
+
+
+def test_event_validation_rejects_non_event_titles() -> None:
+    signal = {
+        "company": "Atlas Build Group",
+        "signal_type": "audit",
+        "event_summary": "Atlas Build Group quarterly revenue update",
+        "source": "https://example.com/revenue",
+        "date_detected": "2026-03-26",
+        "confidence_score": None,
+        "priority": None,
+        "raw_text": "Atlas Build Group quarterly revenue update",
+    }
+
+    assert get_signal_rejection_reason(signal) == "missing_event_term"
 
 
 def test_signal_extraction_no_mutation() -> None:

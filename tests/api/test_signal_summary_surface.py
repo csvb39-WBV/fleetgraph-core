@@ -20,13 +20,14 @@ def _signal(
     signal_type: str,
     priority: str,
     confidence_score: int,
+    source: str,
 ) -> dict[str, object]:
     return {
         "company": company,
         "signal_type": signal_type,
         "event_summary": f"{signal_type} event for {company}",
-        "source": "public-record.example",
-        "date_detected": "2026-03-27",
+        "source": source,
+        "date_detected": "2026-03-28",
         "confidence_score": confidence_score,
         "priority": priority,
         "raw_text": f"{signal_type} event for {company}",
@@ -34,14 +35,14 @@ def _signal(
     }
 
 
-def test_summary_correctness() -> None:
+def test_summary_correctness_includes_source_counts() -> None:
     result = build_signal_summary(
         [
-            _signal("Atlas Build Co", "litigation", "HIGH", 5),
-            _signal("Beacon Masonry", "audit", "HIGH", 4),
-            _signal("Civic Review LLC", "government", "MEDIUM", 3),
-            _signal("Delta Works", "project_distress", "HIGH", 4),
-            _signal("Atlas Build Co", "audit", "MEDIUM", 3),
+            _signal("Atlas Build Co", "litigation", "HIGH", 5, "rss_news://court-feed"),
+            _signal("Beacon Masonry", "audit", "HIGH", 4, "duckduckgo_html://search-result"),
+            _signal("Civic Review LLC", "government", "MEDIUM", 3, "duckduckgo_api://instant-answer"),
+            _signal("Delta Works", "project_distress", "HIGH", 4, "duckduckgo_html://search-result-2"),
+            _signal("Atlas Build Co", "audit", "MEDIUM", 3, "rss_news://audit-feed"),
         ]
     )
 
@@ -56,6 +57,11 @@ def test_summary_correctness() -> None:
             "HIGH": 3,
             "MEDIUM": 2,
         },
+        "count_by_source": {
+            "rss_news": 2,
+            "duckduckgo_html": 2,
+            "duckduckgo_api": 1,
+        },
         "total_exported_count": 5,
         "top_companies": [
             "Atlas Build Co",
@@ -69,10 +75,10 @@ def test_summary_correctness() -> None:
 def test_top_companies_support_broader_entity_names() -> None:
     result = build_signal_summary(
         [
-            _signal("Smith & Jones LLP", "litigation", "HIGH", 5),
-            _signal("Beacon Holdings", "audit", "HIGH", 4),
-            _signal("Atlas Services Group", "government", "MEDIUM", 3),
-            _signal("Gray Counsel PLLC", "litigation", "HIGH", 5),
+            _signal("Smith & Jones LLP", "litigation", "HIGH", 5, "rss_news://court-feed"),
+            _signal("Beacon Holdings", "audit", "HIGH", 4, "duckduckgo_html://search-result"),
+            _signal("Atlas Services Group", "government", "MEDIUM", 3, "duckduckgo_api://instant-answer"),
+            _signal("Gray Counsel PLLC", "litigation", "HIGH", 5, "rss_news://legal-feed"),
         ]
     )
 

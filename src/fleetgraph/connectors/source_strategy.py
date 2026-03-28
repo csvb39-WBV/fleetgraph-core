@@ -12,42 +12,31 @@ _PROVIDER_ORDER = (
     "rss_news",
 )
 _SUPPORTED_PROVIDERS = set(_PROVIDER_ORDER)
-_STRONG_EDUCATIONAL_PHRASES = (
+HARD_BLOCK_TERMS = (
+    "guide",
     "what is",
     "what to do",
-    "comprehensive guide",
-    "complete guide",
-    "law explained",
-    "understanding",
-)
-_WEAK_EDUCATIONAL_TERMS = (
-    "guide",
-    "how to",
     "faq",
     "faqs",
     "tips",
     "explained",
+    "complete guide",
+    "comprehensive guide",
+    "understanding",
+    "law overview",
+    "how to",
 )
-_EVENT_TERMS = (
-    "lawsuit",
+_REQUIRED_EVENT_TERMS = (
     "sued",
+    "lawsuit",
     "filed",
-    "dispute",
-    "delay",
-    "default",
-    "halted",
-    "terminated",
     "investigation",
     "subpoena",
-    "document production",
-    "discovery",
-    "lien",
-    "audit",
-    "regulatory action",
-    "forensic review",
-    "ordered",
-    "announced",
-    "debarred",
+    "default",
+    "delay",
+    "dispute",
+    "terminated",
+    "halted",
 )
 
 
@@ -166,28 +155,28 @@ def _normalize_result_item(*, title: str, snippet: str, url: str, source_provide
     }
 
 
-def _normalize_for_suppression(value: str) -> str:
+def _normalize_for_filtering(value: str) -> str:
     return " ".join(value.lower().split())
 
 
 def is_educational_result(result_item: dict[str, str]) -> bool:
-    normalized_text = _normalize_for_suppression(
-        f"{result_item['title']} {result_item['snippet']}"
-    )
-    if any(phrase in normalized_text for phrase in _STRONG_EDUCATIONAL_PHRASES):
-        return True
-    weak_term_count = sum(1 for term in _WEAK_EDUCATIONAL_TERMS if term in normalized_text)
-    if weak_term_count >= 2 and not any(term in normalized_text for term in _EVENT_TERMS):
-        return True
-    return False
+    normalized_title = _normalize_for_filtering(result_item["title"])
+    return any(term in normalized_title for term in HARD_BLOCK_TERMS)
 
 
-def suppress_educational_results(results: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
+def has_required_event_terms(result_item: dict[str, str]) -> bool:
+    normalized_title = _normalize_for_filtering(result_item["title"])
+    return any(term in normalized_title for term in _REQUIRED_EVENT_TERMS)
+
+
+def filter_results(results: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
     filtered_results: list[dict[str, str]] = []
     suppressed_count = 0
     for result_item in results:
         if is_educational_result(result_item):
             suppressed_count += 1
+            continue
+        if not has_required_event_terms(result_item):
             continue
         filtered_results.append(result_item)
     return filtered_results, suppressed_count
@@ -314,7 +303,7 @@ def retrieve_results_with_metadata(
             parsed_results = parsers[provider](payload, result_limit=result_limit)
         except (WebSearchConnectorError, json.JSONDecodeError, element_tree.ParseError, UnicodeDecodeError):
             continue
-        filtered_results, suppressed_count = suppress_educational_results(parsed_results)
+        filtered_results, suppressed_count = filter_results(parsed_results)
         total_suppressed_count += suppressed_count
         if len(filtered_results) > 0:
             return {

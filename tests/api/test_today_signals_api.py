@@ -38,8 +38,8 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
                 "company": "Smith & Jones LLP",
                 "signal_type": "litigation",
                 "event_summary": "Document production ordered",
-                "source": "court.example",
-                "date_detected": "2026-03-27",
+                "source": "rss_news://court-feed",
+                "date_detected": "2026-03-28",
                 "confidence_score": 5,
                 "priority": "HIGH",
                 "raw_text": "Document production ordered for outside counsel Smith & Jones LLP.",
@@ -51,8 +51,8 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
                 "company": "Beacon Holdings",
                 "signal_type": "audit",
                 "event_summary": "Audit notice posted",
-                "source": "audit.example",
-                "date_detected": "2026-03-27",
+                "source": "duckduckgo_html://search-result",
+                "date_detected": "2026-03-28",
                 "confidence_score": 4,
                 "priority": "HIGH",
                 "raw_text": "Audit notice posted for Beacon Holdings.",
@@ -60,7 +60,7 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
             }
         )
     manifest = {
-        "run_date": "2026-03-27",
+        "run_date": "2026-03-28",
         "query_count_executed": 8,
         "cache_hits": 3,
         "cache_misses": 5,
@@ -74,7 +74,7 @@ def _write_outputs(output_directory: pathlib.Path) -> None:
         json.dump(manifest, handle, indent=2, sort_keys=True)
 
 
-def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> None:
+def test_api_response_validation_with_source_counts(tmp_path: pathlib.Path) -> None:
     _write_outputs(tmp_path)
 
     result = build_today_signals_response(tmp_path)
@@ -86,8 +86,8 @@ def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> N
                 "company": "Smith & Jones LLP",
                 "signal_type": "litigation",
                 "event_summary": "Document production ordered",
-                "source": "court.example",
-                "date_detected": "2026-03-27",
+                "source": "rss_news://court-feed",
+                "date_detected": "2026-03-28",
                 "confidence_score": 5,
                 "priority": "HIGH",
                 "raw_text": "Document production ordered for outside counsel Smith & Jones LLP.",
@@ -97,8 +97,8 @@ def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> N
                 "company": "Beacon Holdings",
                 "signal_type": "audit",
                 "event_summary": "Audit notice posted",
-                "source": "audit.example",
-                "date_detected": "2026-03-27",
+                "source": "duckduckgo_html://search-result",
+                "date_detected": "2026-03-28",
                 "confidence_score": 4,
                 "priority": "HIGH",
                 "raw_text": "Audit notice posted for Beacon Holdings.",
@@ -107,7 +107,7 @@ def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> N
         ],
         "retained_count": 2,
         "exported_count": 2,
-        "run_date": "2026-03-27",
+        "run_date": "2026-03-28",
         "status": "success",
         "csv_path": str((tmp_path / "daily_signals.csv").resolve()),
         "summary": {
@@ -120,6 +120,11 @@ def test_api_response_validation_with_broader_names(tmp_path: pathlib.Path) -> N
             "count_by_priority": {
                 "HIGH": 2,
                 "MEDIUM": 0,
+            },
+            "count_by_source": {
+                "rss_news": 1,
+                "duckduckgo_html": 1,
+                "duckduckgo_api": 0,
             },
             "total_exported_count": 2,
             "top_companies": [
