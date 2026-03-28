@@ -64,7 +64,7 @@ def build_default_runtime_config(project_root: str | Path) -> dict[str, object]:
             "run_date": "1970-01-01",
             "output_directory": str(project_root_path / "data" / "runs" / "current"),
             "cache_path": str(project_root_path / "data" / "cache" / "signal_cache.json"),
-            "max_queries_per_run": 14,
+            "max_queries_per_run": 7,
             "max_results_per_query": 5,
             "connector_timeout_seconds": 5.0,
             "connector_max_retries": 2,

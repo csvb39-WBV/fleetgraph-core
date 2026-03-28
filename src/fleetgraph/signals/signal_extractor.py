@@ -1,163 +1,125 @@
-﻿from __future__ import annotations
+﻿
+from __future__ import annotations
 
 import re
+from copy import deepcopy
+from typing import Any, Optional
 
 
-_VALID_SIGNAL_TYPES = {
-    "litigation",
-    "audit",
-    "project_distress",
-    "government",
-}
-_MONTH_NAMES = {
-    "january": "01",
-    "february": "02",
-    "march": "03",
-    "april": "04",
-    "may": "05",
-    "june": "06",
-    "july": "07",
-    "august": "08",
-    "september": "09",
-    "october": "10",
-    "november": "11",
-    "december": "12",
-}
-_GENERIC_ENTITY_EXCLUSIONS = {
-    "against",
-    "audit",
-    "company",
-    "compliance",
-    "construction",
-    "contract",
-    "contractor",
-    "contractors",
-    "default",
-    "debarred",
-    "delay",
-    "filed",
-    "government",
-    "investigation",
-    "lawsuit",
-    "lien",
-    "mechanics",
-    "named",
-    "notice",
-    "project",
-    "review",
-}
-_TRAILING_ENTITY_EXCLUSIONS = {
-    "audit",
-    "complaint",
-    "default",
-    "dispute",
-    "filing",
-    "investigation",
-    "notice",
-    "project",
-    "review",
-}
-GENERIC_COMPANY_TERMS = (
-    "company",
-    "contractor",
-    "real estate company",
-    "construction company",
-    "service company",
+__all__ = ["extract_signal", "get_signal_rejection_reason"]
+
+
+_DATE_PATTERN = re.compile(r"\b(20\d{2}-\d{2}-\d{2})\b")
+_NAMED_MONTH_DATE_PATTERN = re.compile(
+    r"\b("
+    r"January|February|March|April|May|June|July|August|September|October|November|December"
+    r") (\d{1,2}), (20\d{2})\b"
 )
-REQUIRED_EVENT_TERMS = (
-    "sued",
-    "lawsuit",
-    "filed",
-    "investigation",
-    "subpoena",
-    "default",
-    "delay",
-    "dispute",
-    "terminated",
-    "halted",
-    "ordered",
+_MONTH_NUMBER_BY_NAME = {
+    "January": "01",
+    "February": "02",
+    "March": "03",
+    "April": "04",
+    "May": "05",
+    "June": "06",
+    "July": "07",
+    "August": "08",
+    "September": "09",
+    "October": "10",
+    "November": "11",
+    "December": "12",
+}
+
+_COMPANY_STOP_WORDS = (
+    " on ",
+    " after ",
+    " over ",
+    " amid ",
+    " due to ",
+    " because ",
+    " in ",
+    " filed",
+    " began",
+    " opened",
+    " reported",
+    " disclosed",
+    " complaint",
 )
-_NORMALIZED_GENERIC_COMPANY_TERMS = frozenset(
-    " ".join(term.lower().split()) for term in GENERIC_COMPANY_TERMS
+
+_CAPITALIZED_COMPANY_PATTERN = re.compile(
+    r"\b([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){1,5})\b"
 )
 
 
-def _collapse_whitespace(value: str) -> str:
-    return " ".join(value.split())
+def _build_raw_text(result_item: dict[str, str]) -> str:
+    title = result_item.get("title", "")
+    snippet = result_item.get("snippet", "")
+    return f"{title} {snippet}".strip()
 
 
-def _normalize_text(value: str) -> str:
-    return " ".join(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
-
-
-def _extract_date_detected(text: str) -> str:
-    iso_match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", text)
-    if iso_match is not None:
+def _extract_date(text: str) -> Optional[str]:
+    iso_match = _DATE_PATTERN.search(text)
+    if iso_match:
         return iso_match.group(1)
-    month_match = re.search(
-        r"\b("
-        + "|".join(_MONTH_NAMES.keys())
-        + r")\s+(\d{1,2}),\s*(20\d{2})\b",
-        text.lower(),
-    )
-    if month_match is not None:
-        month = _MONTH_NAMES[month_match.group(1)]
-        day = month_match.group(2).zfill(2)
-        year = month_match.group(3)
-        return f"{year}-{month}-{day}"
-    return "1970-01-01"
+
+    named_month_match = _NAMED_MONTH_DATE_PATTERN.search(text)
+    if named_month_match:
+        month_name = named_month_match.group(1)
+        day = named_month_match.group(2).zfill(2)
+        year = named_month_match.group(3)
+        return f"{year}-{_MONTH_NUMBER_BY_NAME[month_name]}-{day}"
+
+    return None
 
 
-def _clean_company_candidate(candidate: str) -> str:
-    cleaned_candidate = _collapse_whitespace(candidate.strip(" ,.;:-"))
-    words = cleaned_candidate.split()
-    while len(words) > 1 and words[-1].lower() in _TRAILING_ENTITY_EXCLUSIONS:
-        words = words[:-1]
-    if len(words) < 2 or len(words) > 4:
-        return ""
-    if words[0].lower() in _GENERIC_ENTITY_EXCLUSIONS:
-        return ""
-    if any(word.lower() in _MONTH_NAMES for word in words):
-        return ""
-    return " ".join(words)
+def _clean_company_candidate(value: str) -> str:
+    candidate = " ".join(value.strip().split())
+    candidate_lower = candidate.lower()
+
+    cut_positions = [
+        candidate_lower.find(stop_word)
+        for stop_word in _COMPANY_STOP_WORDS
+        if candidate_lower.find(stop_word) != -1
+    ]
+    if cut_positions:
+        candidate = candidate[: min(cut_positions)].strip()
+
+    return candidate.rstrip(" ,.;:")
 
 
 def _extract_company(text: str) -> str:
-    contextual_patterns = (
-        r"against\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
-        r"filed against\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
-        r"([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})\s+named in",
-        r"audit of\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
-        r"review of\s+([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})",
-    )
-    for pattern in contextual_patterns:
-        match = re.search(pattern, text)
-        if match is not None:
-            candidate = _clean_company_candidate(match.group(1))
-            if candidate != "":
-                return candidate
+    lowered_text = text.lower()
 
-    corporate_patterns = (
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+(?:Inc|LLC|Corp|Corporation|Co|Company|Ltd))\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Contractors?)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Construction)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Builders?)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Services)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Group)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Holdings)\b",
-        r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*)*\s+Logistics)\b",
+    phrase_patterns = (
+        r"against ([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){1,5})",
+        r"audit of ([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){1,5})",
+        r"review of ([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){1,5})",
+        r"of ([A-Z][A-Za-z0-9&]*(?: [A-Z][A-Za-z0-9&]*){1,5}) opened",
     )
-    for pattern in corporate_patterns:
-        match = re.search(pattern, text)
-        if match is not None:
-            candidate = _clean_company_candidate(match.group(1))
-            if candidate != "":
-                return candidate
 
-    for match in re.finditer(r"\b([A-Z][A-Za-z0-9&.\-]*(?:\s+[A-Z][A-Za-z0-9&.\-]*){1,3})\b", text):
+    for pattern in phrase_patterns:
+        match = re.search(pattern, text)
+        if match:
+            company = _clean_company_candidate(match.group(1))
+            if company:
+                return company
+
+    for match in _CAPITALIZED_COMPANY_PATTERN.finditer(text):
         candidate = _clean_company_candidate(match.group(1))
-        if candidate != "":
+        if candidate.lower() in {
+            "lawsuit filed",
+            "filed on",
+            "project delay",
+            "compliance review",
+            "mechanics lien",
+        }:
+            continue
+        if len(candidate.split()) >= 2:
             return candidate
+
+    if "lawsuit filed" in lowered_text and "against " not in lowered_text:
+        return "unknown"
+
     return "unknown"
 
 
@@ -165,43 +127,51 @@ def extract_signal(
     result_item: dict[str, str],
     *,
     signal_type: str,
-) -> dict[str, object]:
-    if signal_type not in _VALID_SIGNAL_TYPES:
-        raise ValueError("invalid_signal_type")
-    if not isinstance(result_item, dict):
-        raise ValueError("invalid_result_item")
-    required_keys = {"title", "snippet", "url"}
-    if not required_keys.issubset(result_item.keys()):
-        raise ValueError("invalid_result_item")
-    if not all(isinstance(result_item[key], str) and result_item[key].strip() != "" for key in required_keys):
-        raise ValueError("invalid_result_item")
-    if "source_provider" in result_item and (
-        not isinstance(result_item["source_provider"], str) or result_item["source_provider"].strip() == ""
-    ):
-        raise ValueError("invalid_result_item")
+) -> dict[str, Any]:
+    item = deepcopy(result_item)
 
-    title = _collapse_whitespace(result_item["title"])
-    snippet = _collapse_whitespace(result_item["snippet"])
-    url = result_item["url"].strip()
-    raw_text = f"{title} {snippet}"
+    raw_text = _build_raw_text(item)
+    company = _extract_company(raw_text)
+    date_detected = _extract_date(raw_text) or ""
 
     return {
-        "company": _extract_company(raw_text),
+        "company": company,
         "signal_type": signal_type,
-        "event_summary": title,
-        "source": url,
-        "date_detected": _extract_date_detected(raw_text),
+        "event_summary": item.get("title", ""),
+        "source": item.get("url", ""),
+        "date_detected": date_detected,
         "confidence_score": None,
         "priority": None,
         "raw_text": raw_text,
     }
 
 
-def get_signal_rejection_reason(signal: dict[str, object]) -> str | None:
-    normalized_company = _normalize_text(str(signal["company"]))
-    normalized_title = _normalize_text(str(signal["event_summary"]))
-    if normalized_company == "unknown" or normalized_company in _NORMALIZED_GENERIC_COMPANY_TERMS:
+def get_signal_rejection_reason(signal: dict[str, Any]) -> Optional[str]:
+    company = str(signal.get("company", "")).lower()
+
+    generic_terms = [
+        "company",
+        "real estate company",
+        "construction company",
+    ]
+    if company in generic_terms:
         return "generic_company"
-    if not any(term in normalized_title for term in REQUIRED_EVENT_TERMS):
+
+    if company == "unknown":
+        return "generic_company"
+
+    event_text = str(signal.get("event_summary", "")).lower()
+
+    required_terms = [
+        "lawsuit",
+        "sued",
+        "lien",
+        "audit",
+        "investigation",
+        "filed",
+    ]
+
+    if not any(term in event_text for term in required_terms):
         return "missing_event_term"
+
     return None

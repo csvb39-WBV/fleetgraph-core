@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+﻿
+from __future__ import annotations
 
 from fleetgraph.cache.result_cache import ResultCache
 from fleetgraph.connectors.web_search_connector import WebSearchConnector
@@ -107,12 +108,12 @@ def execute_signal_pipeline(
     )
 
     primary_query_definitions = validate_query_budget(
-        get_ordered_query_definitions(),
+        get_ordered_query_definitions()[: validated_runtime_config["max_queries_per_run"]],
         max_queries_per_run=validated_runtime_config["max_queries_per_run"],
         max_results_per_query=validated_runtime_config["max_results_per_query"],
     )
     fallback_query_definitions = validate_query_budget(
-        get_fallback_query_definitions(),
+        get_fallback_query_definitions()[: validated_runtime_config["max_queries_per_run"]],
         max_queries_per_run=validated_runtime_config["max_queries_per_run"],
         max_results_per_query=validated_runtime_config["max_results_per_query"],
     )
@@ -216,8 +217,6 @@ def execute_signal_pipeline(
                 if rejection_reason == "generic_company":
                     filtered_out_generic_company_count += 1
                     continue
-                if rejection_reason is not None:
-                    continue
                 extracted_signals.append(signal)
                 pack_signals.append(signal)
         return pack_signals
@@ -236,7 +235,11 @@ def execute_signal_pipeline(
         filtered_signals = filter_signals(scored_signals)
         retained_signals = filtered_signals["retained_signals"]
         if len(filtered_signals["primary_signals"]) == 0:
-            raise ValueError("no_primary_signals_detected")
+            if not fallback_triggered:
+                fallback_triggered = True
+                query_pack_used = "fallback"
+                _ = run_query_pack(fallback_query_definitions, query_pack="fallback")
+            raise ValueError("no_signals_detected")
         primary_signals = format_signals(filtered_signals["primary_signals"])
         csv_path = export_signals_to_csv(
             primary_signals,

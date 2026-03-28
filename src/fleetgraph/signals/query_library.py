@@ -1,4 +1,5 @@
-﻿from __future__ import annotations
+﻿
+from __future__ import annotations
 
 
 _PRIMARY_QUERY_DEFINITIONS = (
@@ -43,11 +44,11 @@ _PRIMARY_QUERY_DEFINITIONS = (
         "intent_type": "event_based",
     },
     {
-        "query_id": "government_federal_investigation_contractor",
+        "query_id": "government_audit_investigation_contractor",
         "signal_type": "government",
         "query": "federal investigation announced contractor infrastructure project",
         "priority_weight": 5,
-        "max_results": 4,
+        "max_results": 5,
         "intent_type": "event_based",
     },
     {
@@ -115,6 +116,7 @@ _PRIMARY_QUERY_DEFINITIONS = (
         "intent_type": "event_based",
     },
 )
+
 _FALLBACK_QUERY_DEFINITIONS = (
     {
         "query_id": "fallback_company_sued_project",
@@ -157,6 +159,7 @@ _FALLBACK_QUERY_DEFINITIONS = (
         "intent_type": "event_based",
     },
 )
+
 _REQUIRED_QUERY_KEYS = {
     "query_id",
     "signal_type",
@@ -165,6 +168,7 @@ _REQUIRED_QUERY_KEYS = {
     "max_results",
     "intent_type",
 }
+
 _VALID_SIGNAL_TYPES = {
     "litigation",
     "audit",
