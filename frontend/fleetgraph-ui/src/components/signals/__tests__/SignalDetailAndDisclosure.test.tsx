@@ -45,7 +45,7 @@ test('detail panel renders source and deterministic legal-oriented mapping', asy
   });
 
   const html = container.innerHTML;
-  expect(html).toContain('Smith & Jones LLP');
+  expect(html).toContain('Smith &amp; Jones LLP');
   expect(html).toContain('HIGH CONFIDENCE');
   expect(html).toContain('News');
   expect(html).toContain('Subpoena and document-production activity can trigger urgent preservation, collection, and review workloads.');

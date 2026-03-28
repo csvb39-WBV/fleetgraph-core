@@ -54,7 +54,7 @@ test('table renders source and quality badges with broader names', async () => {
   expect(html).toContain('Quality');
   expect(html).toContain('Priority');
   expect(html).toContain('Recommended Action');
-  expect(html).toContain('Smith & Jones LLP');
+  expect(html).toContain('Smith &amp; Jones LLP');
   expect(html).toContain('Atlas Services Group');
   expect(html).toContain('Source: News');
   expect(html).toContain('Source: Web');

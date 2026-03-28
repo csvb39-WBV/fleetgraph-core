@@ -61,7 +61,7 @@ test('dashboard renders source indicators badges and source-count summaries', as
 
   const html = container.innerHTML;
   expect(html).toContain('Top Signals Ready for Operator Review');
-  expect(html).toContain('Smith & Jones LLP');
+  expect(html).toContain('Smith &amp; Jones LLP');
   expect(html).toContain('Beacon Holdings');
   expect(html).toContain('HIGH CONFIDENCE');
   expect(html).toContain('MEDIUM CONFIDENCE');
