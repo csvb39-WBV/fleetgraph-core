@@ -22,7 +22,7 @@ test('service validates successful response shape', async () => {
         top_signals: [],
         retained_count: 4,
         exported_count: 2,
-        run_date: '2026-03-27',
+        run_date: '2026-03-28',
         status: 'success',
         csv_path: 'C:/signals/daily_signals.csv',
         summary: {
@@ -36,6 +36,11 @@ test('service validates successful response shape', async () => {
             HIGH: 2,
             MEDIUM: 0,
           },
+          count_by_source: {
+            rss_news: 1,
+            duckduckgo_html: 1,
+            duckduckgo_api: 0,
+          },
           total_exported_count: 2,
           top_companies: ['Atlas Build Co', 'Beacon Masonry'],
         },
@@ -48,6 +53,7 @@ test('service validates successful response shape', async () => {
 
   expect(result.exported_count).toBe(2);
   expect(result.summary.count_by_priority.HIGH).toBe(2);
+  expect(result.summary.count_by_source.rss_news).toBe(1);
 });
 
 test('service rejects invalid payloads', async () => {

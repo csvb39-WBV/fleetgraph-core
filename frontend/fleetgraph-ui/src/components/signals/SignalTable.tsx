@@ -34,6 +34,31 @@ function priorityChip(priority: 'HIGH' | 'MEDIUM'): JSX.Element {
   );
 }
 
+function sourceLabel(source: string): 'News' | 'Legal' | 'Web' {
+  const normalizedSource = source.toLowerCase();
+  if (normalizedSource.includes('rss') || normalizedSource.includes('news')) {
+    return 'News';
+  }
+  if (
+    normalizedSource.includes('court')
+    || normalizedSource.includes('law')
+    || normalizedSource.includes('legal')
+    || normalizedSource.includes('counsel')
+    || normalizedSource.includes('docket')
+  ) {
+    return 'Legal';
+  }
+  return 'Web';
+}
+
+function qualityBadge(signal: TodaySignal): 'HIGH CONFIDENCE' | 'MEDIUM CONFIDENCE' {
+  const label = sourceLabel(signal.source);
+  if (signal.confidence_score >= 5 || (signal.confidence_score >= 4 && label === 'News')) {
+    return 'HIGH CONFIDENCE';
+  }
+  return 'MEDIUM CONFIDENCE';
+}
+
 function signalTypeLabel(signalType: TodaySignal['signal_type']): string {
   return signalType.split('_').join(' ');
 }
@@ -48,6 +73,8 @@ export function SignalTable({ signals, selectedCompany, onSelectCompany }: Props
             <th style={{ padding: '14px', textAlign: 'left' }}>Signal Type</th>
             <th style={{ padding: '14px', textAlign: 'left' }}>Event Summary</th>
             <th style={{ padding: '14px', textAlign: 'left' }}>Date</th>
+            <th style={{ padding: '14px', textAlign: 'left' }}>Source</th>
+            <th style={{ padding: '14px', textAlign: 'left' }}>Quality</th>
             <th style={{ padding: '14px', textAlign: 'left' }}>Priority</th>
             <th style={{ padding: '14px', textAlign: 'left' }}>Recommended Action</th>
           </tr>
@@ -69,6 +96,8 @@ export function SignalTable({ signals, selectedCompany, onSelectCompany }: Props
                 <td style={{ padding: '14px', textTransform: 'capitalize' }}>{signalTypeLabel(signal.signal_type)}</td>
                 <td style={{ padding: '14px', color: '#334155' }}>{signal.event_summary}</td>
                 <td style={{ padding: '14px' }}>{signal.date_detected}</td>
+                <td style={{ padding: '14px', color: '#1d4ed8', fontWeight: 700 }}>Source: {sourceLabel(signal.source)}</td>
+                <td style={{ padding: '14px', fontWeight: 700 }}>{qualityBadge(signal)}</td>
                 <td style={{ padding: '14px' }}>{priorityChip(signal.priority)}</td>
                 <td style={{ padding: '14px', fontWeight: 700, color: '#0f766e' }}>{signal.recommended_action}</td>
               </tr>

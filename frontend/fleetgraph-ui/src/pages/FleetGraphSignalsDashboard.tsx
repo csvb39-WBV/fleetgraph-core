@@ -10,6 +10,31 @@ function topFiveSignals(signals: TodaySignal[]): TodaySignal[] {
   return signals.slice(0, 5);
 }
 
+function sourceLabel(source: string): 'News' | 'Legal' | 'Web' {
+  const normalizedSource = source.toLowerCase();
+  if (normalizedSource.includes('rss') || normalizedSource.includes('news')) {
+    return 'News';
+  }
+  if (
+    normalizedSource.includes('court')
+    || normalizedSource.includes('law')
+    || normalizedSource.includes('legal')
+    || normalizedSource.includes('counsel')
+    || normalizedSource.includes('docket')
+  ) {
+    return 'Legal';
+  }
+  return 'Web';
+}
+
+function qualityBadge(signal: TodaySignal): 'HIGH CONFIDENCE' | 'MEDIUM CONFIDENCE' {
+  const label = sourceLabel(signal.source);
+  if (signal.confidence_score >= 5 || (signal.confidence_score >= 4 && label === 'News')) {
+    return 'HIGH CONFIDENCE';
+  }
+  return 'MEDIUM CONFIDENCE';
+}
+
 export function FleetGraphSignalsDashboard(): JSX.Element {
   const [payload, setPayload] = useState<TodaySignalsPayload | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -101,9 +126,13 @@ export function FleetGraphSignalsDashboard(): JSX.Element {
                   padding: '14px',
                 }}
               >
-                <div style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e2e8f0' }}>{signal.priority}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: '#e2e8f0' }}>{signal.priority}</div>
+                  <div style={{ fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#bfdbfe' }}>{qualityBadge(signal)}</div>
+                </div>
                 <div style={{ marginTop: '6px', fontWeight: 700 }}>{signal.company}</div>
                 <div style={{ marginTop: '4px', color: '#cbd5e1', fontSize: '14px' }}>{signal.event_summary}</div>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#93c5fd' }}>Source: {sourceLabel(signal.source)}</div>
               </article>
             ))}
           </div>

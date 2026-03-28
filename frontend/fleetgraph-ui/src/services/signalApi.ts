@@ -21,6 +21,11 @@ export type TodaySignalsSummary = {
     HIGH: number;
     MEDIUM: number;
   };
+  count_by_source: {
+    rss_news: number;
+    duckduckgo_html: number;
+    duckduckgo_api: number;
+  };
   total_exported_count: number;
   top_companies: string[];
 };

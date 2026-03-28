@@ -35,6 +35,9 @@ export function SignalSummaryCards({ summary, retainedCount }: Props): JSX.Eleme
     { label: 'Audit', value: summary.count_by_signal_type.audit, accent: '#1d4ed8' },
     { label: 'Project Distress', value: summary.count_by_signal_type.project_distress, accent: '#92400e' },
     { label: 'Government', value: summary.count_by_signal_type.government, accent: '#166534' },
+    { label: 'News Signals', value: summary.count_by_source.rss_news, accent: '#7c3aed' },
+    { label: 'Web Signals', value: summary.count_by_source.duckduckgo_html, accent: '#0f766e' },
+    { label: 'API Signals', value: summary.count_by_source.duckduckgo_api, accent: '#b91c1c' },
   ];
 
   return (
