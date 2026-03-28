@@ -23,6 +23,7 @@ def _manifest(**overrides: object) -> dict[str, object]:
         "cache_hits": 2,
         "cache_misses": 5,
         "source_success_count": 5,
+        "suppressed_result_count": 3,
         "raw_results_count": 7,
         "extracted_signal_count": 7,
         "deduplicated_signal_count": 7,
@@ -54,6 +55,7 @@ def test_manifest_new_fields_present_and_correct() -> None:
     result = build_run_manifest(_manifest())
 
     assert result["source_success_count"] == 5
+    assert result["suppressed_result_count"] == 3
     assert result["raw_results_count"] == 7
     assert result["extracted_signal_count"] == 7
     assert result["deduplicated_signal_count"] == 7

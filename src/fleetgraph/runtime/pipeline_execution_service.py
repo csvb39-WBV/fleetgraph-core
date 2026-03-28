@@ -19,6 +19,7 @@ def _build_debug_report(
     *,
     query_definitions: list[dict[str, object]],
     query_execution: list[dict[str, object]],
+    suppressed_result_count: int,
     raw_results: list[dict[str, str]],
     extracted_signals: list[dict[str, object]],
     deduplicated_signals: list[dict[str, object]],
@@ -32,14 +33,17 @@ def _build_debug_report(
                 "query": query_definition["query"],
                 "signal_type": query_definition["signal_type"],
                 "max_results": query_definition["max_results"],
+                "intent_type": query_definition["intent_type"],
             }
             for query_definition in query_definitions
         ],
+        "suppressed_result_count": suppressed_result_count,
         "query_execution": [
             {
                 "query": entry["query"],
                 "source_used": entry["source_used"],
                 "result_count": entry["result_count"],
+                "suppressed_count": entry["suppressed_count"],
                 "error_code": entry["error_code"],
             }
             for entry in query_execution
@@ -78,6 +82,7 @@ def execute_signal_pipeline(
     runtime_config: dict,
     *,
     transport: object | None = None,
+    source_fetcher: object | None = None,
     current_time: int = 0,
 ) -> dict[str, object]:
     validated_runtime_config = build_runtime_config(runtime_config)
@@ -90,6 +95,7 @@ def execute_signal_pipeline(
         timeout_seconds=validated_runtime_config["connector_timeout_seconds"],
         max_retries=validated_runtime_config["connector_max_retries"],
         transport=transport,
+        source_fetcher=source_fetcher,
     )
 
     query_definitions = validate_query_budget(
@@ -101,6 +107,7 @@ def execute_signal_pipeline(
     cache_hits = 0
     cache_misses = 0
     source_success_count = 0
+    suppressed_result_count = 0
     raw_results: list[dict[str, str]] = []
     extracted_signals: list[dict[str, object]] = []
     deduplicated_signals: list[dict[str, object]] = []
@@ -111,6 +118,7 @@ def execute_signal_pipeline(
             "query": query_definition["query"],
             "source_used": "not_executed",
             "result_count": 0,
+            "suppressed_count": 0,
             "error_code": None,
         }
         for query_definition in query_definitions
@@ -126,23 +134,35 @@ def execute_signal_pipeline(
                 try:
                     cached_results = connector.search(query, result_limit=result_limit)
                 except Exception as exc:
+                    last_search_metadata = connector.get_last_search_metadata()
+                    suppressed_result_count += int(last_search_metadata["suppressed_count"])
                     query_execution[index] = {
                         "query": query,
-                        "source_used": "none",
-                        "result_count": 0,
+                        "source_used": last_search_metadata["source_used"],
+                        "result_count": int(last_search_metadata["result_count"]),
+                        "suppressed_count": int(last_search_metadata["suppressed_count"]),
                         "error_code": str(exc),
                     }
                     raise
+                last_search_metadata = connector.get_last_search_metadata()
+                suppressed_result_count += int(last_search_metadata["suppressed_count"])
                 cache.set(query, cached_results)
+                query_execution[index] = {
+                    "query": query,
+                    "source_used": str(last_search_metadata["source_used"]),
+                    "result_count": len(cached_results),
+                    "suppressed_count": int(last_search_metadata["suppressed_count"]),
+                    "error_code": None,
+                }
             else:
                 cache_hits += 1
-            source_provider = cached_results[0]["source_provider"]
-            query_execution[index] = {
-                "query": query,
-                "source_used": source_provider,
-                "result_count": len(cached_results),
-                "error_code": None,
-            }
+                query_execution[index] = {
+                    "query": query,
+                    "source_used": cached_results[0]["source_provider"] if len(cached_results) > 0 else "none",
+                    "result_count": len(cached_results),
+                    "suppressed_count": 0,
+                    "error_code": None,
+                }
             if len(cached_results) > 0:
                 source_success_count += 1
             for result_item in cached_results:
@@ -182,6 +202,7 @@ def execute_signal_pipeline(
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
+                "suppressed_result_count": suppressed_result_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -196,6 +217,7 @@ def execute_signal_pipeline(
         debug_report = _build_debug_report(
             query_definitions=query_definitions,
             query_execution=query_execution,
+            suppressed_result_count=suppressed_result_count,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,
@@ -222,6 +244,7 @@ def execute_signal_pipeline(
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
                 "source_success_count": source_success_count,
+                "suppressed_result_count": suppressed_result_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -236,6 +259,7 @@ def execute_signal_pipeline(
         debug_report = _build_debug_report(
             query_definitions=query_definitions,
             query_execution=query_execution,
+            suppressed_result_count=suppressed_result_count,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,

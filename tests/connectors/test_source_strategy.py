@@ -2,7 +2,13 @@
 
 import pytest
 
-from fleetgraph.connectors.source_strategy import WebSearchConnectorError, retrieve_results
+from fleetgraph.connectors.source_strategy import (
+    WebSearchConnectorError,
+    is_educational_result,
+    retrieve_results,
+    retrieve_results_with_metadata,
+    suppress_educational_results,
+)
 
 
 def test_multi_source_primary_fails_html_fallback_succeeds() -> None:
@@ -18,21 +24,27 @@ def test_multi_source_primary_fails_html_fallback_succeeds() -> None:
             """
         return "<rss><channel></channel></rss>"
 
-    results = retrieve_results(
-        "construction lawsuit contractor",
+    metadata = retrieve_results_with_metadata(
+        "lawsuit filed against contractor company major project",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
     )
 
-    assert results == [
-        {
-            "title": "Atlas Build Group lawsuit filed",
-            "snippet": "Atlas Build Group faces contract dispute.",
-            "url": "https://example.com/atlas",
-            "source_provider": "duckduckgo_html",
-        }
-    ]
+    assert metadata == {
+        "ok": True,
+        "results": [
+            {
+                "title": "Atlas Build Group lawsuit filed",
+                "snippet": "Atlas Build Group faces contract dispute.",
+                "url": "https://example.com/atlas",
+                "source_provider": "duckduckgo_html",
+            }
+        ],
+        "source_provider": "duckduckgo_html",
+        "suppressed_count": 0,
+        "error_code": None,
+    }
 
 
 def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
@@ -41,8 +53,8 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
             return """
             <rss><channel>
                 <item>
-                    <title>Beacon Masonry Services audit review</title>
-                    <description>Beacon Masonry Services audit review published.</description>
+                    <title>Beacon Masonry Services audit investigation announced</title>
+                    <description>Beacon Masonry Services audit investigation announced for a public project.</description>
                     <link>https://example.com/beacon</link>
                 </item>
             </channel></rss>
@@ -50,7 +62,7 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
         return ""
 
     results = retrieve_results(
-        "audit construction company",
+        "audit investigation company project firm holdings",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
@@ -58,8 +70,8 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
 
     assert results == [
         {
-            "title": "Beacon Masonry Services audit review",
-            "snippet": "Beacon Masonry Services audit review published.",
+            "title": "Beacon Masonry Services audit investigation announced",
+            "snippet": "Beacon Masonry Services audit investigation announced for a public project.",
             "url": "https://example.com/beacon",
             "source_provider": "rss_news",
         }
@@ -69,7 +81,7 @@ def test_multi_source_rss_fallback_succeeds_when_others_fail() -> None:
 def test_all_sources_fail_raise_no_results_returned() -> None:
     with pytest.raises(WebSearchConnectorError, match="no_results_returned"):
         retrieve_results(
-            "construction lawsuit contractor",
+            "lawsuit filed against contractor company major project",
             result_limit=3,
             timeout_seconds=5.0,
             fetcher=lambda provider, url, timeout_seconds: "",
@@ -79,20 +91,71 @@ def test_all_sources_fail_raise_no_results_returned() -> None:
 def test_source_strategy_deterministic_selection() -> None:
     def fetcher(provider: str, url: str, timeout_seconds: float) -> str:
         if provider == "duckduckgo_api":
-            return '{"Results": [{"Heading": "Atlas Build Group suit", "AbstractText": "Atlas Build Group suit posted.", "FirstURL": "https://example.com/atlas"}], "RelatedTopics": []}'
+            return '{"Results": [{"Heading": "Atlas Build Group lawsuit", "AbstractText": "Atlas Build Group lawsuit filed.", "FirstURL": "https://example.com/atlas"}], "RelatedTopics": []}'
         return ""
 
     first = retrieve_results(
-        "construction lawsuit contractor",
+        "lawsuit filed against contractor company major project",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
     )
     second = retrieve_results(
-        "construction lawsuit contractor",
+        "lawsuit filed against contractor company major project",
         result_limit=3,
         timeout_seconds=5.0,
         fetcher=fetcher,
     )
 
     assert first == second
+
+
+def test_educational_titles_are_suppressed() -> None:
+    result_item = {
+        "title": "Construction litigation guide explained",
+        "snippet": "Complete guide and FAQ for contractor disputes.",
+        "url": "https://example.com/guide",
+        "source_provider": "duckduckgo_api",
+    }
+
+    assert is_educational_result(result_item) is True
+
+
+def test_event_headlines_are_not_suppressed() -> None:
+    result_item = {
+        "title": "Atlas Build Group lawsuit filed after project delay",
+        "snippet": "Federal complaint filed against Atlas Build Group.",
+        "url": "https://example.com/event",
+        "source_provider": "duckduckgo_api",
+    }
+
+    assert is_educational_result(result_item) is False
+
+
+def test_mixed_batches_return_only_event_relevant_items() -> None:
+    results, suppressed_count = suppress_educational_results(
+        [
+            {
+                "title": "Construction litigation guide explained",
+                "snippet": "Complete guide and FAQ for contractor disputes.",
+                "url": "https://example.com/guide",
+                "source_provider": "duckduckgo_api",
+            },
+            {
+                "title": "Atlas Build Group lawsuit filed after project delay",
+                "snippet": "Federal complaint filed against Atlas Build Group.",
+                "url": "https://example.com/event",
+                "source_provider": "duckduckgo_api",
+            },
+        ]
+    )
+
+    assert suppressed_count == 1
+    assert results == [
+        {
+            "title": "Atlas Build Group lawsuit filed after project delay",
+            "snippet": "Federal complaint filed against Atlas Build Group.",
+            "url": "https://example.com/event",
+            "source_provider": "duckduckgo_api",
+        }
+    ]

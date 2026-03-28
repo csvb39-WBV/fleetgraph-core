@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from fleetgraph.connectors.source_strategy import WebSearchConnectorError, retrieve_results
+from fleetgraph.connectors.source_strategy import WebSearchConnectorError, retrieve_results_with_metadata
 
 
 class WebSearchConnector:
@@ -24,6 +24,12 @@ class WebSearchConnector:
         self._min_interval_seconds = float(min_interval_seconds)
         self._transport = transport
         self._source_fetcher = source_fetcher
+        self._last_search_metadata = {
+            "source_used": "not_executed",
+            "result_count": 0,
+            "suppressed_count": 0,
+            "error_code": None,
+        }
 
     @staticmethod
     def _normalize_result_item(result_item: object) -> dict[str, str]:
@@ -55,13 +61,29 @@ class WebSearchConnector:
         return normalized_results
 
     def _default_transport(self, query: str, result_limit: int) -> list[dict[str, str]]:
-        raw_results = retrieve_results(
+        metadata = retrieve_results_with_metadata(
             query,
             result_limit=result_limit,
             timeout_seconds=self._timeout_seconds,
             fetcher=self._source_fetcher,
         )
-        return self.normalize_results(raw_results, result_limit=result_limit)
+        self._last_search_metadata = {
+            "source_used": metadata["source_provider"],
+            "result_count": len(metadata["results"]),
+            "suppressed_count": metadata["suppressed_count"],
+            "error_code": metadata["error_code"],
+        }
+        if metadata["ok"] is not True:
+            raise WebSearchConnectorError(str(metadata["error_code"]))
+        return self.normalize_results(metadata["results"], result_limit=result_limit)
+
+    def get_last_search_metadata(self) -> dict[str, object]:
+        return {
+            "source_used": self._last_search_metadata["source_used"],
+            "result_count": self._last_search_metadata["result_count"],
+            "suppressed_count": self._last_search_metadata["suppressed_count"],
+            "error_code": self._last_search_metadata["error_code"],
+        }
 
     def search(self, query: str, *, result_limit: int) -> list[dict[str, str]]:
         if not isinstance(query, str) or query.strip() == "":
@@ -75,11 +97,40 @@ class WebSearchConnector:
             attempts += 1
             try:
                 if self._transport is not None:
-                    raw_results = self._transport(query, result_limit, self._timeout_seconds)
-                    return self.normalize_results(raw_results, result_limit=result_limit)
+                    try:
+                        raw_results = self._transport(query, result_limit, self._timeout_seconds)
+                    except Exception as exc:
+                        self._last_search_metadata = {
+                            "source_used": "none",
+                            "result_count": 0,
+                            "suppressed_count": 0,
+                            "error_code": str(exc),
+                        }
+                        raise
+                    normalized_results = self.normalize_results(raw_results, result_limit=result_limit)
+                    self._last_search_metadata = {
+                        "source_used": normalized_results[0]["source_provider"],
+                        "result_count": len(normalized_results),
+                        "suppressed_count": 0,
+                        "error_code": None,
+                    }
+                    return normalized_results
                 return self._default_transport(query, result_limit)
             except WebSearchConnectorError as exc:
+                if self._transport is not None:
+                    self._last_search_metadata = {
+                        "source_used": "none",
+                        "result_count": 0,
+                        "suppressed_count": 0,
+                        "error_code": str(exc),
+                    }
                 if str(exc) == "no_results_returned":
                     raise
                 last_error = exc
+        self._last_search_metadata = {
+            "source_used": "none",
+            "result_count": 0,
+            "suppressed_count": 0,
+            "error_code": "connector_request_failed",
+        }
         raise WebSearchConnectorError("connector_request_failed") from last_error

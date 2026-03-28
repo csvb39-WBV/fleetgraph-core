@@ -22,19 +22,19 @@ class RecordingTransport:
                     "source_provider": "duckduckgo_api",
                 }
             ]
-        if "audit construction company" in query:
+        if "audit investigation" in query:
             return [
                 {
-                    "title": "Beacon Builders audit findings released",
-                    "snippet": "March 12, 2026 report cites cost overruns.",
+                    "title": "Beacon Builders audit investigation announced",
+                    "snippet": "March 12, 2026 report cites cost overruns on a public project.",
                     "url": "https://example.com/beacon-audit",
                     "source_provider": "rss_news",
                 }
             ]
         return [
             {
-                "title": "Civic Contractors government investigation announced",
-                "snippet": "2026-03-20 review concerns procurement conduct.",
+                "title": "Civic Contractors federal investigation announced",
+                "snippet": "2026-03-20 review concerns procurement conduct on a major project.",
                 "url": "https://example.com/civic-investigation",
                 "source_provider": "duckduckgo_html",
             }

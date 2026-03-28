@@ -12,6 +12,43 @@ _PROVIDER_ORDER = (
     "rss_news",
 )
 _SUPPORTED_PROVIDERS = set(_PROVIDER_ORDER)
+_STRONG_EDUCATIONAL_PHRASES = (
+    "what is",
+    "what to do",
+    "comprehensive guide",
+    "complete guide",
+    "law explained",
+    "understanding",
+)
+_WEAK_EDUCATIONAL_TERMS = (
+    "guide",
+    "how to",
+    "faq",
+    "faqs",
+    "tips",
+    "explained",
+)
+_EVENT_TERMS = (
+    "lawsuit",
+    "sued",
+    "filed",
+    "dispute",
+    "delay",
+    "default",
+    "halted",
+    "terminated",
+    "investigation",
+    "subpoena",
+    "document production",
+    "discovery",
+    "lien",
+    "audit",
+    "regulatory action",
+    "forensic review",
+    "ordered",
+    "announced",
+    "debarred",
+)
 
 
 class WebSearchConnectorError(RuntimeError):
@@ -129,6 +166,33 @@ def _normalize_result_item(*, title: str, snippet: str, url: str, source_provide
     }
 
 
+def _normalize_for_suppression(value: str) -> str:
+    return " ".join(value.lower().split())
+
+
+def is_educational_result(result_item: dict[str, str]) -> bool:
+    normalized_text = _normalize_for_suppression(
+        f"{result_item['title']} {result_item['snippet']}"
+    )
+    if any(phrase in normalized_text for phrase in _STRONG_EDUCATIONAL_PHRASES):
+        return True
+    weak_term_count = sum(1 for term in _WEAK_EDUCATIONAL_TERMS if term in normalized_text)
+    if weak_term_count >= 2 and not any(term in normalized_text for term in _EVENT_TERMS):
+        return True
+    return False
+
+
+def suppress_educational_results(results: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
+    filtered_results: list[dict[str, str]] = []
+    suppressed_count = 0
+    for result_item in results:
+        if is_educational_result(result_item):
+            suppressed_count += 1
+            continue
+        filtered_results.append(result_item)
+    return filtered_results, suppressed_count
+
+
 def _extend_duckduckgo_items(raw_results: list[dict[str, str]], payload_items: object) -> None:
     if not isinstance(payload_items, list):
         return
@@ -221,13 +285,13 @@ def _fetch_live_payload(provider: str, url: str, timeout_seconds: float) -> byte
         raise WebSearchConnectorError("connector_request_failed") from exc
 
 
-def retrieve_results(
+def retrieve_results_with_metadata(
     query: str,
     *,
     result_limit: int,
     timeout_seconds: float,
     fetcher: object | None = None,
-) -> list[dict[str, str]]:
+) -> dict[str, object]:
     if not isinstance(query, str) or query.strip() == "":
         raise WebSearchConnectorError("invalid_query")
     if not isinstance(result_limit, int) or isinstance(result_limit, bool) or result_limit <= 0:
@@ -241,14 +305,47 @@ def retrieve_results(
         "duckduckgo_html": _parse_duckduckgo_html,
         "rss_news": _parse_rss_news,
     }
+    total_suppressed_count = 0
 
     for source_request in _build_source_requests(query):
         provider = source_request["provider"]
         try:
             payload = payload_fetcher(provider, source_request["url"], float(timeout_seconds))
-            results = parsers[provider](payload, result_limit=result_limit)
+            parsed_results = parsers[provider](payload, result_limit=result_limit)
         except (WebSearchConnectorError, json.JSONDecodeError, element_tree.ParseError, UnicodeDecodeError):
             continue
-        if len(results) > 0:
-            return results
-    raise WebSearchConnectorError("no_results_returned")
+        filtered_results, suppressed_count = suppress_educational_results(parsed_results)
+        total_suppressed_count += suppressed_count
+        if len(filtered_results) > 0:
+            return {
+                "ok": True,
+                "results": filtered_results,
+                "source_provider": provider,
+                "suppressed_count": total_suppressed_count,
+                "error_code": None,
+            }
+    return {
+        "ok": False,
+        "results": [],
+        "source_provider": "none",
+        "suppressed_count": total_suppressed_count,
+        "error_code": "no_results_returned",
+    }
+
+
+def retrieve_results(
+    query: str,
+    *,
+    result_limit: int,
+    timeout_seconds: float,
+    fetcher: object | None = None,
+) -> list[dict[str, str]]:
+    metadata = retrieve_results_with_metadata(
+        query,
+        result_limit=result_limit,
+        timeout_seconds=timeout_seconds,
+        fetcher=fetcher,
+    )
+    if metadata["ok"] is not True:
+        raise WebSearchConnectorError(str(metadata["error_code"]))
+    return metadata["results"]

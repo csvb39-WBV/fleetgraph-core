@@ -11,13 +11,13 @@ def test_query_ordering_deterministic() -> None:
 
     assert first == second
     assert [query_definition["query"] for query_definition in first] == [
-        "construction lawsuit contractor",
-        "contract dispute contractor project",
-        "mechanics lien filed contractor",
-        "audit construction company compliance review contractor",
-        "project delay construction dispute",
-        "contractor default notice project",
-        "government investigation contractor contractor debarred construction",
+        "lawsuit filed against contractor company major project",
+        "mechanics lien filed against company services group",
+        "developer sued contractor project delay infrastructure",
+        "contractor default notice issued developer public project",
+        "audit investigation company project firm holdings",
+        "federal investigation announced contractor infrastructure project",
+        "subpoena issued company litigation counsel law firm",
     ]
 
 
@@ -30,10 +30,26 @@ def test_query_library_contract() -> None:
         "query",
         "priority_weight",
         "max_results",
+        "intent_type",
     } for query_definition in query_definitions)
     assert all(query_definition["priority_weight"] > 0 for query_definition in query_definitions)
     assert all(query_definition["max_results"] > 0 for query_definition in query_definitions)
+    assert all(query_definition["intent_type"] == "event_based" for query_definition in query_definitions)
     assert len(query_definitions) == 7
+
+
+def test_query_library_all_queries_are_event_based() -> None:
+    query_definitions = get_ordered_query_definitions()
+
+    assert all(any(term in query_definition["query"] for term in (
+        "lawsuit",
+        "lien",
+        "sued",
+        "delay",
+        "default notice",
+        "investigation",
+        "subpoena",
+    )) for query_definition in query_definitions)
 
 
 def test_query_library_no_mutation() -> None:

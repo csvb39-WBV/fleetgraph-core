@@ -3,53 +3,60 @@
 
 _QUERY_DEFINITIONS = (
     {
-        "query_id": "litigation_construction_lawsuit",
+        "query_id": "litigation_lawsuit_filed_major_project",
         "signal_type": "litigation",
-        "query": "construction lawsuit contractor",
+        "query": "lawsuit filed against contractor company major project",
         "priority_weight": 5,
         "max_results": 5,
+        "intent_type": "event_based",
     },
     {
-        "query_id": "litigation_contract_dispute",
+        "query_id": "litigation_mechanics_lien_services_group",
         "signal_type": "litigation",
-        "query": "contract dispute contractor project",
+        "query": "mechanics lien filed against company services group",
+        "priority_weight": 5,
+        "max_results": 5,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "project_distress_developer_sued_delay",
+        "signal_type": "project_distress",
+        "query": "developer sued contractor project delay infrastructure",
         "priority_weight": 4,
         "max_results": 5,
+        "intent_type": "event_based",
     },
     {
-        "query_id": "litigation_mechanics_lien",
-        "signal_type": "litigation",
-        "query": "mechanics lien filed contractor",
-        "priority_weight": 5,
+        "query_id": "project_distress_default_notice_public_project",
+        "signal_type": "project_distress",
+        "query": "contractor default notice issued developer public project",
+        "priority_weight": 4,
         "max_results": 5,
+        "intent_type": "event_based",
     },
     {
-        "query_id": "audit_compliance_review",
+        "query_id": "audit_investigation_company_project",
         "signal_type": "audit",
-        "query": "audit construction company compliance review contractor",
+        "query": "audit investigation company project firm holdings",
         "priority_weight": 4,
         "max_results": 4,
+        "intent_type": "event_based",
     },
     {
-        "query_id": "project_distress_delay",
-        "signal_type": "project_distress",
-        "query": "project delay construction dispute",
-        "priority_weight": 4,
-        "max_results": 5,
-    },
-    {
-        "query_id": "project_distress_default_notice",
-        "signal_type": "project_distress",
-        "query": "contractor default notice project",
-        "priority_weight": 3,
-        "max_results": 4,
-    },
-    {
-        "query_id": "government_enforcement",
+        "query_id": "government_federal_investigation_contractor",
         "signal_type": "government",
-        "query": "government investigation contractor contractor debarred construction",
+        "query": "federal investigation announced contractor infrastructure project",
         "priority_weight": 5,
         "max_results": 4,
+        "intent_type": "event_based",
+    },
+    {
+        "query_id": "litigation_subpoena_discovery_counsel",
+        "signal_type": "litigation",
+        "query": "subpoena issued company litigation counsel law firm",
+        "priority_weight": 4,
+        "max_results": 4,
+        "intent_type": "event_based",
     },
 )
 _REQUIRED_QUERY_KEYS = {
@@ -58,6 +65,7 @@ _REQUIRED_QUERY_KEYS = {
     "query",
     "priority_weight",
     "max_results",
+    "intent_type",
 }
 _VALID_SIGNAL_TYPES = {
     "litigation",
@@ -86,6 +94,8 @@ def _is_valid_query_definition(query_definition: object) -> bool:
         return False
     if not _is_valid_int(query_definition["max_results"]) or query_definition["max_results"] <= 0:
         return False
+    if query_definition["intent_type"] != "event_based":
+        return False
     return True
 
 
@@ -97,6 +107,7 @@ def get_ordered_query_definitions() -> list[dict[str, object]]:
             "query": query_definition["query"],
             "priority_weight": query_definition["priority_weight"],
             "max_results": query_definition["max_results"],
+            "intent_type": query_definition["intent_type"],
         }
         for query_definition in _QUERY_DEFINITIONS
     ]
