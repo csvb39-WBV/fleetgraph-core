@@ -19,14 +19,16 @@ class RecordingTransport:
                     "title": "Acme Construction LLC sued in mechanics lien filing",
                     "snippet": "Filed on 2026-03-26 after project payment dispute.",
                     "url": "https://example.com/acme-lien",
+                    "source_provider": "duckduckgo_api",
                 }
             ]
-        if "audit findings" in query:
+        if "audit construction company" in query:
             return [
                 {
                     "title": "Beacon Builders audit findings released",
                     "snippet": "March 12, 2026 report cites cost overruns.",
                     "url": "https://example.com/beacon-audit",
+                    "source_provider": "rss_news",
                 }
             ]
         return [
@@ -34,6 +36,7 @@ class RecordingTransport:
                 "title": "Civic Contractors government investigation announced",
                 "snippet": "2026-03-20 review concerns procurement conduct.",
                 "url": "https://example.com/civic-investigation",
+                "source_provider": "duckduckgo_html",
             }
         ]
 
@@ -60,8 +63,8 @@ def test_acquisition_runner_deterministic_output(tmp_path: Path) -> None:
     assert all(signal["confidence_score"] is None for signal in first)
     assert all(signal["priority"] is None for signal in first)
     assert [signal["company"] for signal in first] == [
-        "Acme Construction LLC",
         "Civic Contractors",
+        "Acme Construction LLC",
         "Beacon Builders",
     ]
 

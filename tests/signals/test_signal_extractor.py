@@ -10,6 +10,7 @@ def _result_item(**overrides: str) -> dict[str, str]:
         "title": "Acme Construction LLC sued in mechanics lien filing",
         "snippet": "Filed on 2026-03-26 after project payment dispute.",
         "url": "https://example.com/acme-lien",
+        "source_provider": "duckduckgo_api",
     }
     result_item.update(overrides)
     return result_item

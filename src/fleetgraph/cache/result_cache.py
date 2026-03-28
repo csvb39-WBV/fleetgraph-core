@@ -69,13 +69,15 @@ class ResultCache:
             title = result.get("title")
             snippet = result.get("snippet")
             url = result.get("url")
-            if not all(isinstance(value, str) and value.strip() != "" for value in (title, snippet, url)):
+            source_provider = result.get("source_provider")
+            if not all(isinstance(value, str) and value.strip() != "" for value in (title, snippet, url, source_provider)):
                 return None
             normalized_results.append(
                 {
                     "title": title,
                     "snippet": snippet,
                     "url": url,
+                    "source_provider": source_provider,
                 }
             )
         return normalized_results
@@ -90,6 +92,7 @@ class ResultCache:
                     "title": result["title"],
                     "snippet": result["snippet"],
                     "url": result["url"],
+                    "source_provider": result["source_provider"],
                 }
                 for result in results
             ],

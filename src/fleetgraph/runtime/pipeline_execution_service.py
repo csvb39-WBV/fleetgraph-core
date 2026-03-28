@@ -18,6 +18,7 @@ from fleetgraph.signals.signal_scoring_engine import score_signals
 def _build_debug_report(
     *,
     query_definitions: list[dict[str, object]],
+    query_execution: list[dict[str, object]],
     raw_results: list[dict[str, str]],
     extracted_signals: list[dict[str, object]],
     deduplicated_signals: list[dict[str, object]],
@@ -34,6 +35,15 @@ def _build_debug_report(
             }
             for query_definition in query_definitions
         ],
+        "query_execution": [
+            {
+                "query": entry["query"],
+                "source_used": entry["source_used"],
+                "result_count": entry["result_count"],
+                "error_code": entry["error_code"],
+            }
+            for entry in query_execution
+        ],
         "raw_results_count": len(raw_results),
         "extracted_signal_count": len(extracted_signals),
         "deduplicated_signal_count": len(deduplicated_signals),
@@ -44,6 +54,7 @@ def _build_debug_report(
                 "title": result_item["title"],
                 "snippet": result_item["snippet"],
                 "url": result_item["url"],
+                "source_provider": result_item["source_provider"],
             }
             for result_item in raw_results[:5]
         ],
@@ -89,29 +100,58 @@ def execute_signal_pipeline(
 
     cache_hits = 0
     cache_misses = 0
+    source_success_count = 0
     raw_results: list[dict[str, str]] = []
     extracted_signals: list[dict[str, object]] = []
     deduplicated_signals: list[dict[str, object]] = []
     retained_signals: list[dict[str, object]] = []
     primary_signals: list[dict[str, object]] = []
+    query_execution = [
+        {
+            "query": query_definition["query"],
+            "source_used": "not_executed",
+            "result_count": 0,
+            "error_code": None,
+        }
+        for query_definition in query_definitions
+    ]
 
     try:
-        for query_definition in query_definitions:
+        for index, query_definition in enumerate(query_definitions):
             query = query_definition["query"]
             result_limit = query_definition["max_results"]
             cached_results = cache.get(query)
             if cached_results is None:
                 cache_misses += 1
-                cached_results = connector.search(query, result_limit=result_limit)
+                try:
+                    cached_results = connector.search(query, result_limit=result_limit)
+                except Exception as exc:
+                    query_execution[index] = {
+                        "query": query,
+                        "source_used": "none",
+                        "result_count": 0,
+                        "error_code": str(exc),
+                    }
+                    raise
                 cache.set(query, cached_results)
             else:
                 cache_hits += 1
+            source_provider = cached_results[0]["source_provider"]
+            query_execution[index] = {
+                "query": query,
+                "source_used": source_provider,
+                "result_count": len(cached_results),
+                "error_code": None,
+            }
+            if len(cached_results) > 0:
+                source_success_count += 1
             for result_item in cached_results:
                 raw_results.append(
                     {
                         "title": result_item["title"],
                         "snippet": result_item["snippet"],
                         "url": result_item["url"],
+                        "source_provider": result_item["source_provider"],
                     }
                 )
                 extracted_signals.append(
@@ -141,6 +181,7 @@ def execute_signal_pipeline(
                 "query_count_executed": len(query_definitions),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
+                "source_success_count": source_success_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -154,6 +195,7 @@ def execute_signal_pipeline(
         manifest_path = write_manifest(manifest, output_paths["output_directory"])
         debug_report = _build_debug_report(
             query_definitions=query_definitions,
+            query_execution=query_execution,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,
@@ -179,6 +221,7 @@ def execute_signal_pipeline(
                 "query_count_executed": len(query_definitions),
                 "cache_hits": cache_hits,
                 "cache_misses": cache_misses,
+                "source_success_count": source_success_count,
                 "raw_results_count": len(raw_results),
                 "extracted_signal_count": len(extracted_signals),
                 "deduplicated_signal_count": len(deduplicated_signals),
@@ -192,6 +235,7 @@ def execute_signal_pipeline(
         manifest_path = write_manifest(manifest, output_paths["output_directory"])
         debug_report = _build_debug_report(
             query_definitions=query_definitions,
+            query_execution=query_execution,
             raw_results=raw_results,
             extracted_signals=extracted_signals,
             deduplicated_signals=deduplicated_signals,

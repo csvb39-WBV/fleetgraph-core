@@ -142,9 +142,13 @@ def extract_signal(
     if not isinstance(result_item, dict):
         raise ValueError("invalid_result_item")
     required_keys = {"title", "snippet", "url"}
-    if set(result_item.keys()) != required_keys:
+    if not required_keys.issubset(result_item.keys()):
         raise ValueError("invalid_result_item")
     if not all(isinstance(result_item[key], str) and result_item[key].strip() != "" for key in required_keys):
+        raise ValueError("invalid_result_item")
+    if "source_provider" in result_item and (
+        not isinstance(result_item["source_provider"], str) or result_item["source_provider"].strip() == ""
+    ):
         raise ValueError("invalid_result_item")
 
     title = _collapse_whitespace(result_item["title"])

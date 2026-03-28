@@ -5,11 +5,17 @@ from pathlib import Path
 from fleetgraph.cache.result_cache import ResultCache
 
 
-def _result(title: str = "Acme Construction sued", snippet: str = "2026-03-26 filing", url: str = "https://example.com/a") -> dict[str, str]:
+def _result(
+    title: str = "Acme Construction sued",
+    snippet: str = "2026-03-26 filing",
+    url: str = "https://example.com/a",
+    source_provider: str = "duckduckgo_api",
+) -> dict[str, str]:
     return {
         "title": title,
         "snippet": snippet,
         "url": url,
+        "source_provider": source_provider,
     }
 
 

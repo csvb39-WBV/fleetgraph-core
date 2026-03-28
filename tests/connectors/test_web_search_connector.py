@@ -12,11 +12,13 @@ def test_connector_normalization_behavior() -> None:
                 "title": "  Acme Construction LLC sued  ",
                 "snippet": " 2026-03-26 filing posted ",
                 "url": " https://example.com/acme ",
+                "source_provider": "duckduckgo_api",
             },
             {
                 "title": "Beacon Builders audit",
                 "snippet": "Audit released",
                 "url": "https://example.com/beacon",
+                "source_provider": "rss_news",
             },
         ]
     )
@@ -26,6 +28,7 @@ def test_connector_normalization_behavior() -> None:
             "title": "Acme Construction LLC sued",
             "snippet": "2026-03-26 filing posted",
             "url": "https://example.com/acme",
+            "source_provider": "duckduckgo_api",
         }
     ]
 
@@ -50,3 +53,33 @@ def test_connector_empty_live_result_handling() -> None:
 
     with pytest.raises(WebSearchConnectorError, match="no_results_returned"):
         connector.search("acme lawsuit", result_limit=2)
+
+
+def test_connector_source_metadata_present_in_all_results() -> None:
+    connector = WebSearchConnector(
+        source_fetcher=lambda provider, url, timeout_seconds: (
+            '{"Results": [], "RelatedTopics": []}'
+            if provider == "duckduckgo_api"
+            else '<html><body><a class="result__a" href="https://example.com/atlas">Atlas Build Group lawsuit</a><div class="result__snippet">Atlas Build Group dispute.</div></body></html>'
+        )
+    )
+
+    results = connector.search("construction lawsuit contractor", result_limit=2)
+
+    assert all(result["source_provider"] == "duckduckgo_html" for result in results)
+
+
+def test_connector_deterministic_source_selection() -> None:
+    connector = WebSearchConnector(
+        source_fetcher=lambda provider, url, timeout_seconds: (
+            '{"Results": [{"Heading": "Atlas Build Group lawsuit", "AbstractText": "Atlas Build Group dispute.", "FirstURL": "https://example.com/atlas"}], "RelatedTopics": []}'
+            if provider == "duckduckgo_api"
+            else ""
+        )
+    )
+
+    first = connector.search("construction lawsuit contractor", result_limit=2)
+    second = connector.search("construction lawsuit contractor", result_limit=2)
+
+    assert first == second
+    assert first[0]["source_provider"] == "duckduckgo_api"
