@@ -6,7 +6,7 @@ import FleetGraphNavigation, {
 import ViewContainer from "./components/navigation/ViewContainer";
 
 export function AppShell(): JSX.Element {
-  const [activeView, setActiveView] = useState<FleetGraphViewKey>("priority-dashboard");
+  const [activeView, setActiveView] = useState<FleetGraphViewKey>("watchlist-console");
 
   return (
     <div
@@ -38,7 +38,7 @@ export function AppShell(): JSX.Element {
         <div>
           <div style={{ fontSize: "18px" }}>FleetGraph Operator Console</div>
           <div style={{ fontSize: "12px", color: "#52606d", fontWeight: 400 }}>
-            Header / title area
+            Watchlist Mode is the current operating priority.
           </div>
         </div>
       </header>

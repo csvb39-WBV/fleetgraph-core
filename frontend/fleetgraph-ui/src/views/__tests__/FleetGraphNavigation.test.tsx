@@ -10,6 +10,9 @@ const mockedViews = vi.hoisted(() => ({
   priorityDashboard: vi.fn(({ payload }: { payload: { company_id: string } }) => (
     <section aria-label="Priority Dashboard View">Priority Dashboard View::{payload.company_id}</section>
   )),
+  watchlistConsole: vi.fn(() => (
+    <section aria-label="Watchlist Console View">Watchlist Console View</section>
+  )),
   companyIntelligence: vi.fn(() => (
     <section aria-label="Company Intelligence View">Company Intelligence View</section>
   )),
@@ -22,6 +25,10 @@ const mockedViews = vi.hoisted(() => ({
 
 vi.mock("../../views/PriorityDashboardView", () => ({
   PriorityDashboardView: mockedViews.priorityDashboard,
+}));
+
+vi.mock("../../views/WatchlistConsoleView", () => ({
+  WatchlistConsoleView: mockedViews.watchlistConsole,
 }));
 
 vi.mock("../../views/CompanyIntelligenceView", () => ({
@@ -68,6 +75,7 @@ async function clickButton(container: HTMLDivElement, label: string): Promise<vo
 function getRenderedViewMarkers(container: HTMLDivElement): string[] {
   return [
     "Priority Dashboard View",
+    "Watchlist Console View",
     "Company Intelligence View",
     "Predictive Insights View",
     "RFP Panel View",
@@ -76,6 +84,7 @@ function getRenderedViewMarkers(container: HTMLDivElement): string[] {
 
 afterEach(() => {
   mockedViews.priorityDashboard.mockClear();
+  mockedViews.watchlistConsole.mockClear();
   mockedViews.companyIntelligence.mockClear();
   mockedViews.predictiveInsights.mockClear();
   mockedViews.rfpPanel.mockClear();
@@ -83,38 +92,35 @@ afterEach(() => {
 });
 
 
-test("default navigation renders priority dashboard workflow", async () => {
+test("default navigation renders watchlist workflow", async () => {
   const { container, root } = await renderShell();
 
   expect(container.innerHTML).toContain("FleetGraph Operator Console");
   expect(container.innerHTML).toContain("Left navigation region");
-  expect(container.innerHTML).toContain("Priority Dashboard View::cmp-001");
+  expect(container.innerHTML).toContain("Watchlist Console View");
+  expect(container.innerHTML).not.toContain("Priority Dashboard View::cmp-001");
   expect(container.innerHTML).not.toContain("Company Intelligence View");
   expect(container.innerHTML).not.toContain("Predictive Insights View");
   expect(container.innerHTML).not.toContain("RFP Panel View");
-  expect(getRenderedViewMarkers(container)).toEqual(["Priority Dashboard View"]);
+  expect(getRenderedViewMarkers(container)).toEqual(["Watchlist Console View"]);
 
-  expect(mockedViews.priorityDashboard).toHaveBeenCalledTimes(1);
-  expect(mockedViews.priorityDashboard.mock.calls[0][0].payload).toEqual({ company_id: "cmp-001" });
+  expect(mockedViews.watchlistConsole).toHaveBeenCalledTimes(1);
 
   const activeButton = Array.from(container.querySelectorAll("button")).find(
     (button) => button.getAttribute("aria-pressed") === "true"
   );
-  expect(activeButton?.textContent).toBe("Priority Dashboard");
+  expect(activeButton?.textContent).toBe("Watchlist Console");
 
   root.unmount();
 });
 
 
-test("navigation switches across all four views", async () => {
+test("navigation switches across all five views", async () => {
   const { container, root } = await renderShell();
 
   await clickButton(container, "Company Intelligence");
   expect(container.innerHTML).toContain("Company Intelligence View");
-  expect(container.innerHTML).not.toContain("Priority Dashboard View::cmp-001");
-  expect(container.innerHTML).not.toContain("Predictive Insights View");
-  expect(container.innerHTML).not.toContain("RFP Panel View");
-  expect(getRenderedViewMarkers(container)).toEqual(["Company Intelligence View"]);
+  expect(container.innerHTML).not.toContain("Watchlist Console View");
 
   await clickButton(container, "Predictive Insights");
   expect(container.innerHTML).toContain("Predictive Insights View");
@@ -127,6 +133,10 @@ test("navigation switches across all four views", async () => {
   await clickButton(container, "Priority Dashboard");
   expect(container.innerHTML).toContain("Priority Dashboard View::cmp-001");
   expect(container.innerHTML).not.toContain("RFP Panel View");
+
+  await clickButton(container, "Watchlist Console");
+  expect(container.innerHTML).toContain("Watchlist Console View");
+  expect(container.innerHTML).not.toContain("Priority Dashboard View::cmp-001");
 
   root.unmount();
 });
@@ -144,6 +154,7 @@ test("navigation button pressed state tracks active view", async () => {
 
   expect(pressedStates).toEqual([
     { label: "Priority Dashboard", pressed: "false" },
+    { label: "Watchlist Console", pressed: "false" },
     { label: "Company Intelligence", pressed: "false" },
     { label: "Predictive Insights", pressed: "true" },
     { label: "RFP Panel", pressed: "false" },

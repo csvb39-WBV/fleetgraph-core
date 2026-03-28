@@ -4,6 +4,7 @@ import { CompanyIntelligenceView } from "../../views/CompanyIntelligenceView";
 import { PredictiveInsightsView } from "../../views/PredictiveInsightsView";
 import { PriorityDashboardView } from "../../views/PriorityDashboardView";
 import { RfpPanelView } from "../../views/RfpPanelView";
+import { WatchlistConsoleView } from "../../views/WatchlistConsoleView";
 import type { FleetGraphViewKey } from "./FleetGraphNavigation";
 
 
@@ -15,6 +16,10 @@ const DEFAULT_PAYLOAD = { company_id: "cmp-001" };
 
 
 export function ViewContainer({ activeView }: Props): JSX.Element {
+  if (activeView === "watchlist-console") {
+    return <WatchlistConsoleView />;
+  }
+
   if (activeView === "company-intelligence") {
     return <CompanyIntelligenceView payload={DEFAULT_PAYLOAD} />;
   }

@@ -3,6 +3,7 @@ import React from "react";
 
 export type FleetGraphViewKey =
   | "priority-dashboard"
+  | "watchlist-console"
   | "company-intelligence"
   | "predictive-insights"
   | "rfp-panel";
@@ -19,6 +20,7 @@ type Props = {
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
   { key: "priority-dashboard", label: "Priority Dashboard" },
+  { key: "watchlist-console", label: "Watchlist Console" },
   { key: "company-intelligence", label: "Company Intelligence" },
   { key: "predictive-insights", label: "Predictive Insights" },
   { key: "rfp-panel", label: "RFP Panel" },

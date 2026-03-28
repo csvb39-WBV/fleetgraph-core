@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import copy
 import pathlib
@@ -45,8 +45,8 @@ def _acquisition_runner(_: dict) -> list[dict[str, object]]:
         _signal(
             company="Beacon Masonry",
             signal_type="audit",
-            event_summary="Audit notice posted",
-            raw_text="Audit notice posted for Beacon Masonry.",
+            event_summary="Audit investigation announced",
+            raw_text="Audit investigation announced for Beacon Masonry.",
         ),
         _signal(
             company="Civic Review LLC",

@@ -18,7 +18,7 @@ test("shell renders successfully", () => {
 test("header / title area is present", () => {
   const html = render();
   expect(html).toContain("FleetGraph Operator Console");
-  expect(html).toContain("Header / title area");
+  expect(html).toContain("Watchlist Mode is the current operating priority.");
 });
 
 test("left navigation region is present", () => {
@@ -34,6 +34,7 @@ test("main content region is present", () => {
 test("all required section placeholders are present", () => {
   const html = render();
   expect(html).toContain("Priority Dashboard");
+  expect(html).toContain("Watchlist Console");
   expect(html).toContain("Company Intelligence");
   expect(html).toContain("Predictive Insights");
   expect(html).toContain("RFP Panel");
